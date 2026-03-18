@@ -153,7 +153,7 @@ class ReminderActionDialog extends StatelessWidget {
                       child: CustomButton(
                         text: "Delete Reminder",
                         borderRadius: 30,
-                        backgroundColor: Colors.white,
+                        backgroundColor: AppColors.white,
                         textColor: Colors.redAccent,
                         borderColor: Colors.redAccent.withOpacity(0.5),
                         onPressed: () => _showConfirmDialog(
