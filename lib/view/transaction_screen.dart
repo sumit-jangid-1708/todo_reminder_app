@@ -1,8 +1,11 @@
+// lib/view/transaction_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:todo_reminder/res/color/app_color.dart';
 import 'package:todo_reminder/res/components/custom_button.dart';
 import 'package:todo_reminder/res/routes/routes_names.dart';
+import 'package:todo_reminder/view_models/controller/transaction_controller.dart';
 import '../model/transaction_model.dart';
 
 class TransactionScreen extends StatelessWidget {
@@ -10,10 +13,22 @@ class TransactionScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Dummy Data
-    final List<Transaction1Model> transactions = [
-      Transaction1Model(amount: "10", time: "12:39PM", isGiven: false),
-      Transaction1Model(amount: "10", time: "12:39PM", isGiven: true),
+    // ✅ Get transaction data passed from home screen
+    final arguments = Get.arguments as Map<String, dynamic>?;
+    final TransactionModel? transaction = arguments?['transaction'];
+
+    if (transaction == null) {
+      return Scaffold(
+        body: Center(
+          child: Text('No transaction data found'),
+        ),
+      );
+    }
+
+    // Dummy transaction list (will be replaced with API data later)
+    final List<Map<String, dynamic>> transactions = [
+      {"amount": "10", "time": "12:39PM", "isGiven": false},
+      {"amount": "10", "time": "12:39PM", "isGiven": true},
     ];
 
     return Scaffold(
@@ -65,9 +80,9 @@ class TransactionScreen extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      "Neha Sharma",
-                      style: TextStyle(
+                    Text(
+                      transaction.name,
+                      style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
                         fontSize: 16,
@@ -75,7 +90,9 @@ class TransactionScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     GestureDetector(
-                      onTap: () {Get.toNamed(RouteName.personProfile);},
+                      onTap: () {
+                        Get.toNamed(RouteName.personProfile);
+                      },
                       child: const Text(
                         "View Profile",
                         style: TextStyle(color: Colors.white70, fontSize: 12),
@@ -125,31 +142,33 @@ class TransactionScreen extends StatelessWidget {
             child: transactions.isEmpty
                 ? _buildEmptyState()
                 : ListView.builder(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 8,
-                    ),
-                    itemCount: transactions.length,
-                    itemBuilder: (context, index) {
-                      final tx = transactions[index];
-                      return _buildTransactionItem(tx);
-                    },
-                  ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 8,
+              ),
+              itemCount: transactions.length,
+              itemBuilder: (context, index) {
+                final tx = transactions[index];
+                return _buildTransactionItem(tx);
+              },
+            ),
           ),
 
           // --- Bottom Action Bar ---
-          _buildBottomActionBar(),
+          _buildBottomActionBar(transaction),
         ],
       ),
     );
   }
 
   /// Transaction Item Widget
-  Widget _buildTransactionItem(Transaction1Model tx) {
+  Widget _buildTransactionItem(Map<String, dynamic> tx) {
+    final bool isGiven = tx['isGiven'] as bool;
+
     return Align(
-      alignment: tx.isGiven ? Alignment.centerRight : Alignment.centerLeft,
+      alignment: isGiven ? Alignment.centerRight : Alignment.centerLeft,
       child: Column(
-        crossAxisAlignment: tx.isGiven
+        crossAxisAlignment: isGiven
             ? CrossAxisAlignment.end
             : CrossAxisAlignment.start,
         children: [
@@ -172,15 +191,13 @@ class TransactionScreen extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  tx.isGiven ? Icons.arrow_upward : Icons.arrow_downward,
+                  isGiven ? Icons.arrow_upward : Icons.arrow_downward,
                   size: 16,
-                  color: tx.isGiven
-                      ? AppColors.error
-                      : AppColors.success,
+                  color: isGiven ? AppColors.error : AppColors.success,
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  "₹${tx.amount}",
+                  "₹${tx['amount']}",
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -193,7 +210,7 @@ class TransactionScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(top: 2, left: 4, right: 4),
             child: Text(
-              tx.time,
+              tx['time'] as String,
               style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
             ),
           ),
@@ -229,7 +246,7 @@ class TransactionScreen extends StatelessWidget {
   }
 
   /// Bottom Action Bar
-  Widget _buildBottomActionBar() {
+  Widget _buildBottomActionBar(TransactionModel transaction) {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
       decoration: BoxDecoration(
@@ -254,16 +271,16 @@ class TransactionScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                "Balance Advance",
+                transaction.personType == 'creditor' ? 'You Will Pay' : 'You Will Receive',
                 style: TextStyle(
                   color: Colors.grey.shade600,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              const Text(
-                "₹0",
-                style: TextStyle(
+              Text(
+                "₹${transaction.pendingAmount.toStringAsFixed(0)}",
+                style: const TextStyle(
                   color: AppColors.primary,
                   fontWeight: FontWeight.w700,
                   fontSize: 18,
@@ -277,14 +294,15 @@ class TransactionScreen extends StatelessWidget {
           // Action Buttons
           Row(
             children: [
-              // Received Button (Outlined)
+              // ✅ Received Button (Outlined)
               Expanded(
                 child: CustomButton(
                   text: "Received",
                   icon: Icons.arrow_downward,
-                  onPressed: () {
-                    // Handle received
-                  },
+                  onPressed: () => _navigateToPayment(
+                    transaction: transaction,
+                    transactionType: 'received',
+                  ),
                   backgroundColor: Colors.white,
                   textColor: AppColors.primary,
                   iconColor: AppColors.primary,
@@ -300,15 +318,15 @@ class TransactionScreen extends StatelessWidget {
 
               const SizedBox(width: 12),
 
-              // Given Button (Filled)
+              // ✅ Given Button (Filled)
               Expanded(
                 child: CustomButton(
                   text: "Given",
                   icon: Icons.arrow_upward,
-                  onPressed: () {
-                    // Handle given
-                    Get.toNamed(RouteName.paymentScreen);
-                  },
+                  onPressed: () => _navigateToPayment(
+                    transaction: transaction,
+                    transactionType: 'given',
+                  ),
                   backgroundColor: AppColors.primary,
                   textColor: Colors.white,
                   iconColor: Colors.white,
@@ -327,6 +345,32 @@ class TransactionScreen extends StatelessWidget {
     );
   }
 
+  /// ✅ Navigate to Payment Screen with transaction data (FIXED)
+  void _navigateToPayment({
+    required TransactionModel transaction,
+    required String transactionType,
+  }) async {
+    // ✅ FIXED: Use Get.put instead of Get.find
+    // This creates the controller if it doesn't exist
+    final controller = Get.put(TransactionController());
+
+    controller.initializeTransaction(
+      name: transaction.name,
+      phone: transaction.phone,
+      personType: transaction.personType,
+      transactionType: transactionType,
+    );
+
+    // Navigate to payment screen
+    final result = await Get.toNamed(RouteName.paymentScreen);
+
+    // If payment was successful, refresh transaction list
+    if (result == true) {
+      print('✅ Payment successful, refreshing transactions...');
+      // TODO: Add refresh logic here
+    }
+  }
+
   void _showMoreMenu(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -341,14 +385,14 @@ class TransactionScreen extends StatelessWidget {
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 20),
           child: Column(
-            mainAxisSize: MainAxisSize.min, // Sheet ki height content ke hisab se rakhega
+            mainAxisSize: MainAxisSize.min,
             children: [
               _buildMenuOption(
                 icon: Icons.delete_outline,
                 title: "Delete",
                 onTap: () {
                   Navigator.pop(context);
-                  // Delete logic yahan likhein
+                  // Delete logic
                 },
               ),
               _buildMenuOption(
@@ -372,7 +416,7 @@ class TransactionScreen extends StatelessWidget {
                   Navigator.pop(context);
                 },
               ),
-              const SizedBox(height: 20), // Bottom space
+              const SizedBox(height: 20),
             ],
           ),
         );
@@ -380,7 +424,11 @@ class TransactionScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuOption({required IconData icon, required String title, required VoidCallback onTap}) {
+  Widget _buildMenuOption({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
     return ListTile(
       leading: Icon(icon, color: Colors.black87, size: 22),
       title: Text(

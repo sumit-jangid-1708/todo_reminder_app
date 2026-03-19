@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:intl/intl.dart';
 import 'package:todo_reminder/view_models/controller/home_controller.dart';
 
 import '../../res/color/app_color.dart';
@@ -142,16 +143,35 @@ class AddPersonForm extends StatelessWidget {
                 ],
               ),
 
-              // 6. Installment Field
+              // 6. Installment Fields (Amount + Date)
               Obx(() => homeController.isRecurring.value
-                  ? Padding(
-                padding: const EdgeInsets.only(top: 15),
-                child: CustomTextField(
-                  controller: homeController.installmentController,
-                  labelText: "Installment Amount",
-                  hintText: "₹ 1,000",
-                  keyboardType: TextInputType.number,
-                ),
+                  ? Column(
+                children: [
+                  const SizedBox(height: 15),
+
+                  // Installment Amount
+                  CustomTextField(
+                    controller: homeController.installmentController,
+                    labelText: "Installment Amount",
+                    hintText: "₹ 1,000",
+                    keyboardType: TextInputType.number,
+                  ),
+
+                  const SizedBox(height: 15),
+
+                  // Installment Date Picker
+                  GestureDetector(
+                    onTap: () => homeController.selectInstallmentDate(context),
+                    child: AbsorbPointer(
+                      child: CustomTextField(
+                        controller: homeController.installmentDateController,
+                        labelText: "First Installment Date",
+                        hintText: "Select date",
+                        // suffixIcon: Icons.calendar_today,
+                      ),
+                    ),
+                  ),
+                ],
               )
                   : const SizedBox.shrink()),
 

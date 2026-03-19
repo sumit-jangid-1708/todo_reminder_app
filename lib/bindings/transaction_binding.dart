@@ -1,11 +1,9 @@
 import 'package:get/get.dart';
-import '../view_models/controller/auth_controller.dart';
 import '../view_models/controller/transaction_controller.dart';
 
-class InitialBinding extends Bindings {
+class TransactionBinding extends Bindings {
   @override
   void dependencies() {
-    Get.lazyPut(()=>AuthController());
     Get.lazyPut<TransactionController>(() => TransactionController());
   }
 }

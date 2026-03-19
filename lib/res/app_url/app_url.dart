@@ -1,7 +1,7 @@
 class AppUrl {
   static const String baseUrl = "https://www.appUrl.com/api/v1/";
-  static const String localUrl = "https://nearly-trustee-movements-freeware.trycloudflare.com/api/auth";
-  static const String localUrl2 = "https://nearly-trustee-movements-freeware.trycloudflare.com/api";
+  static const String localUrl = "https://mazda-pieces-lean-landing.trycloudflare.com/api/auth";
+  static const String localUrl2 = "https://mazda-pieces-lean-landing.trycloudflare.com/api";
   static const String signIn = "$localUrl/sign-in";
   static const String signUp = "$localUrl/sign-up";
   static const String forgetPass = "$localUrl/forgot-password";
@@ -17,6 +17,9 @@ class AppUrl {
   static String completeReminder(int id) => "$reminders/$id/complete";
   static String updateReminder(int id) => "$reminders/$id";
   static String deleteReminder(int id) => "$reminders/$id";
+
+  static const String quickTransaction = "$localUrl2/quick/transaction";
+  static const String getContacts = "$localUrl2/contacts";
 
   static const String fcmToken = "$localUrl2/notifications/fcm-token";
 }

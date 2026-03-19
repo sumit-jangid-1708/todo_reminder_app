@@ -60,9 +60,9 @@ class HomeScreen extends StatelessWidget {
 
                       const SizedBox(height: 20),
 
-                      // ✅ Transaction List or Empty State
+                      // ✅ Contacts List or Empty State
                       Obx(() => controller.hasTransactions
-                          ? _buildTransactionList(controller)
+                          ? _buildContactsList(controller)
                           : _buildEmptyState()),
 
                       const SizedBox(height: 100),
@@ -298,8 +298,8 @@ Widget _buildFilterChips(HomeController controller) {
   );
 }
 
-/// ✅ Transaction List
-Widget _buildTransactionList(HomeController controller) {
+/// ✅ Contacts List (Updated to use ContactModel)
+Widget _buildContactsList(HomeController controller) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
@@ -316,13 +316,13 @@ Widget _buildTransactionList(HomeController controller) {
         ),
       ),
 
-      // Transaction Cards
-      ...controller.currentList.map((transaction) {
+      // Contact Cards
+      ...controller.currentList.map((contact) {
         return TransactionCard(
-          personName: transaction.name,
-          amount: '₹${transaction.pendingAmount}',
-          status: transaction.pendingAmount > 0 ? 'Due' : 'Paid',
-          onTap: () => controller.onTransactionTap(transaction),
+          personName: contact.name,
+          amount: '₹${contact.pendingAmount}',
+          status: contact.pendingAmount > 0 ? 'Due' : 'Paid',
+          onTap: () => controller.onContactTap(contact), // ✅ Updated method
         );
       }).toList(),
     ],

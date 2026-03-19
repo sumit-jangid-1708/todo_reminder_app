@@ -1,5 +1,8 @@
+// lib/view/payment_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:todo_reminder/view_models/controller/transaction_controller.dart';
 
 import '../res/color/app_color.dart';
 import '../res/components/custom_button.dart';
@@ -9,8 +12,8 @@ class PaymentScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Controller for the amount input
-    final TextEditingController amountController = TextEditingController(text: "10");
+    final TransactionController controller = Get.put(TransactionController());
+
     return Scaffold(
       backgroundColor: AppColors.white,
       appBar: AppBar(
@@ -20,33 +23,34 @@ class PaymentScreen extends StatelessWidget {
           icon: const Icon(Icons.arrow_back_ios, color: AppColors.black, size: 20),
           onPressed: () => Get.back(),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.more_vert, color: AppColors.black),
-            onPressed: () {
-            },
+        // ✅ FIXED: Removed Obx since actionLabel doesn't change
+        title: Text(
+          controller.actionLabel,
+          style: TextStyle(
+            color: controller.actionColor,
+            fontWeight: FontWeight.bold,
           ),
-        ],
+        ),
+        centerTitle: true,
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
         child: Column(
           children: [
             // --- Profile Section ---
-            // const SizedBox(height: 100),
             const CircleAvatar(
               radius: 40,
               backgroundColor: AppColors.primary,
               child: Icon(Icons.person, size: 45, color: AppColors.white),
             ),
             const SizedBox(height: 12),
-            const Text(
-              "Neha Sharma",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Text(
+              controller.contactName,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            const Text(
-              "₹0 Due",
-              style: TextStyle(fontSize: 14, color: AppColors.text1),
+            Text(
+              controller.personType == 'creditor' ? 'Creditor' : 'Debtor',
+              style: const TextStyle(fontSize: 14, color: AppColors.text1),
             ),
 
             const Spacer(flex: 2),
@@ -56,7 +60,7 @@ class PaymentScreen extends StatelessWidget {
               children: [
                 IntrinsicWidth(
                   child: TextField(
-                    controller: amountController,
+                    controller: controller.amountController,
                     keyboardType: TextInputType.number,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
@@ -85,18 +89,41 @@ class PaymentScreen extends StatelessWidget {
               ],
             ),
 
+            const SizedBox(height: 30),
+
+            // --- Note TextField ---
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: TextField(
+                controller: controller.noteController,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: "Add a note (optional)",
+                  hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                  border: InputBorder.none,
+                ),
+                style: const TextStyle(fontSize: 14),
+              ),
+            ),
+
             const Spacer(flex: 3),
 
-            // --- Confirm Action Button ---
-            CustomButton(
+            // ✅ FIXED: Only use Obx for loading state button
+            Obx(() => CustomButton(
               text: "Confirm",
-              borderRadius: 12, // App ke design ke hisaab se square-rounded
+              borderRadius: 12,
               height: 55,
               backgroundColor: AppColors.primary,
-              onPressed: () {
-                print("Confirming Amount: ${amountController.text}");
-              },
-            ),
+              isLoading: controller.isLoading.value,
+              onPressed: controller.isLoading.value
+                  ? () {}
+                  : controller.submitQuickTransaction,
+            )),
             const SizedBox(height: 10),
           ],
         ),

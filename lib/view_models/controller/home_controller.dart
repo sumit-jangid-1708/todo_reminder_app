@@ -1,6 +1,6 @@
 // lib/view_models/controller/home_controller.dart
 
-import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -9,6 +9,7 @@ import 'package:todo_reminder/res/routes/routes_names.dart';
 import 'package:todo_reminder/view_models/controller/reminder_controller.dart';
 import 'package:todo_reminder/view_models/service/home_service.dart';
 import '../../data/storage/token_storage.dart';
+import '../../model/contact_model.dart';
 import '../../model/transaction_model.dart';
 import '../../model/transaction_response_model.dart';
 import '../../notification_service.dart';
@@ -22,12 +23,9 @@ class HomeController extends GetxController with BaseController {
   var selectedFilter = "Payable".obs;
   var isCreditor = true.obs;
 
-  // ✅ Transaction Lists
-  final RxList<TransactionModel> creditorsList = <TransactionModel>[].obs;
-  final RxList<TransactionModel> debitorsList = <TransactionModel>[].obs;
-
-  // ✅ Summary Data
-  final Rx<SummaryModel?> summary = Rx<SummaryModel?>(null);
+  // ✅ Contacts Lists (Changed from Transaction to Contact)
+  final RxList<ContactModel> creditorsList = <ContactModel>[].obs;
+  final RxList<ContactModel> debitorsList = <ContactModel>[].obs;
 
   // ✅ Check if lists are empty
   bool get hasTransactions {
@@ -39,7 +37,7 @@ class HomeController extends GetxController with BaseController {
   }
 
   // ✅ Get current list based on selection
-  List<TransactionModel> get currentList {
+  List<ContactModel> get currentList {
     if (isCreditor.value) {
       return creditorsList;
     } else {
@@ -67,6 +65,10 @@ class HomeController extends GetxController with BaseController {
   final totalAmountController = TextEditingController();
   final pendingAmountController = TextEditingController();
   final installmentController = TextEditingController();
+  final installmentDateController = TextEditingController();
+
+  // ✅ Installment Date State
+  final Rx<DateTime?> selectedInstallmentDate = Rx<DateTime?>(null);
 
   // Loading State
   final RxBool isLoading = false.obs;
@@ -87,8 +89,8 @@ class HomeController extends GetxController with BaseController {
   void onInit() {
     super.onInit();
     _setCurrentDate();
-    // ✅ Load transactions from API
-    fetchAllTransactions();
+    // ✅ Load contacts from API
+    fetchAllContacts();
     // ✅ Send FCM token on app start (if user is logged in)
     _sendFcmTokenInBackground();
 
@@ -105,9 +107,9 @@ class HomeController extends GetxController with BaseController {
     totalAmountController.dispose();
     pendingAmountController.dispose();
     installmentController.dispose();
+    installmentDateController.dispose();
     super.onClose();
   }
-
 
   /// ✅ Send FCM Token in Background
   Future<void> _sendFcmTokenInBackground() async {
@@ -121,36 +123,52 @@ class HomeController extends GetxController with BaseController {
       print('Error sending FCM token: $e');
     }
   }
-  // ==================== FETCH ALL TRANSACTIONS ====================
 
-  Future<void> fetchAllTransactions() async {
+  // ==================== INSTALLMENT DATE PICKER ====================
+
+  /// ✅ Select Installment Date
+  Future<void> selectInstallmentDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: selectedInstallmentDate.value ?? DateTime.now().add(const Duration(days: 30)),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+    );
+
+    if (picked != null) {
+      selectedInstallmentDate.value = picked;
+      installmentDateController.text = DateFormat('dd MMMM yyyy').format(picked);
+    }
+  }
+
+  // ==================== FETCH ALL CONTACTS ====================
+
+  /// ✅ Fetch contacts from /api/contacts endpoint
+  Future<void> fetchAllContacts() async {
     try {
       isLoading.value = true;
 
-      final response = await _homeService.getAllTransactions<Map<String, dynamic>>();
-      final model = GetTransactionsResponseModel.fromJson(response);
+      final response = await _homeService.getContacts<Map<String, dynamic>>();
+      final model = ContactsModel.fromJson(response);
 
       if (model.success) {
-        // Save summary
-        summary.value = model.summary;
-
-        // Separate creditors and debitors
+        // Separate creditors and debtors based on person_type
         creditorsList.clear();
         debitorsList.clear();
 
-        for (var transaction in model.data) {
-          if (transaction.type.toLowerCase() == 'creditor') {
-            creditorsList.add(transaction);
-          } else if (transaction.type.toLowerCase() == 'debtor') {
-            debitorsList.add(transaction);
+        for (var contact in model.data) {
+          if (contact.personType.toLowerCase() == 'creditor') {
+            creditorsList.add(contact);
+          } else if (contact.personType.toLowerCase() == 'debtor') {
+            debitorsList.add(contact);
           }
         }
 
-        print('✅ Fetched ${model.data.length} transactions');
+        print('✅ Fetched ${model.data.length} contacts');
         print('Creditors: ${creditorsList.length}');
-        print('Debitors: ${debitorsList.length}');
+        print('Debtors: ${debitorsList.length}');
       } else {
-        print('❌ Failed to fetch transactions: ${model.message}');
+        print('❌ Failed to fetch contacts: ${model.message}');
       }
     } catch (e) {
       handleError(e);
@@ -167,9 +185,16 @@ class HomeController extends GetxController with BaseController {
     try {
       isLoading.value = true;
 
+      // ✅ Determine person_type and transaction_type
+      final personType = _getPersonType();
+      final transactionType = _getTransactionType();
+
       // Prepare data
       final Map<String, dynamic> data = {
-        "type": _getTransactionType(),
+        // ✅ Updated fields
+        "person_type": personType,           // "creditor" or "debtor"
+        "transaction_type": transactionType, // "given" or "received"
+
         "name": fullNameController.text.trim(),
         "phone": mobileNumberController.text.trim(),
         "total_amount": _parseAmount(totalAmountController.text),
@@ -179,16 +204,26 @@ class HomeController extends GetxController with BaseController {
         "date": DateFormat('yyyy-MM-dd').format(DateTime.now()),
       };
 
-      // Add optional fields
-      if (isRecurring.value && installmentController.text.isNotEmpty) {
-        data["installment_amount"] = _parseAmount(installmentController.text);
-        final nextMonth = DateTime.now().add(const Duration(days: 30));
-        data["installment_date"] = DateFormat('yyyy-MM-dd').format(nextMonth);
+      // ✅ Add installment fields if recurring is enabled
+      if (isRecurring.value) {
+        if (installmentController.text.isNotEmpty) {
+          data["installment_amount"] = _parseAmount(installmentController.text);
+        }
+
+        // ✅ Use selected date or default to next month
+        if (selectedInstallmentDate.value != null) {
+          data["installment_date"] = DateFormat('yyyy-MM-dd').format(selectedInstallmentDate.value!);
+        } else {
+          final nextMonth = DateTime.now().add(const Duration(days: 30));
+          data["installment_date"] = DateFormat('yyyy-MM-dd').format(nextMonth);
+        }
       }
 
       if (noteController.text.isNotEmpty) {
         data["note"] = noteController.text.trim();
       }
+
+      print('📤 Sending transaction data: $data');
 
       // Call API
       final response = await _homeService.addTransaction<Map<String, dynamic>>(data);
@@ -198,8 +233,8 @@ class HomeController extends GetxController with BaseController {
         AppAlerts.success(model.message);
         _clearTransactionForm();
 
-        // ✅ Refresh transactions from API
-        await fetchAllTransactions();
+        // ✅ Refresh contacts from API
+        await fetchAllContacts();
 
         await Future.delayed(const Duration(seconds: 1));
         Get.back();
@@ -262,14 +297,17 @@ class HomeController extends GetxController with BaseController {
       return false;
     }
 
-    if (isRecurring.value && installmentController.text.isEmpty) {
-      AppAlerts.error('Please enter installment amount for recurring payment');
-      return false;
-    }
+    // ✅ Validate installment fields if recurring is enabled
+    if (isRecurring.value) {
+      if (installmentController.text.isEmpty) {
+        AppAlerts.error('Please enter installment amount for recurring payment');
+        return false;
+      }
 
-    if (isRecurring.value && _parseAmount(installmentController.text) <= 0) {
-      AppAlerts.error('Installment amount must be greater than 0');
-      return false;
+      if (_parseAmount(installmentController.text) <= 0) {
+        AppAlerts.error('Installment amount must be greater than 0');
+        return false;
+      }
     }
 
     return true;
@@ -277,10 +315,29 @@ class HomeController extends GetxController with BaseController {
 
   // ==================== HELPER METHODS ====================
 
-  String _getTransactionType() {
-    return selectedType.value.toLowerCase();
+  /// ✅ Get person_type from selectedType
+  /// Returns: "creditor" or "debtor"
+  String _getPersonType() {
+    return selectedType.value.toLowerCase(); // "Creditor" -> "creditor"
   }
 
+  /// ✅ Determine transaction_type based on person_type
+  /// Logic:
+  /// - Creditor (lendhar) + Opening Balance = received (liya hai)
+  /// - Debtor (dendhar) + Opening Balance = given (diya hai)
+  String _getTransactionType() {
+    final personType = _getPersonType();
+
+    if (personType == "creditor") {
+      // Creditor se liya hai (opening balance)
+      return "received";
+    } else {
+      // Debtor ko diya hai (opening balance)
+      return "given";
+    }
+  }
+
+  /// ✅ Get payment_type from selectedBalanceType
   String _getPaymentType() {
     if (selectedBalanceType.value == "To Pay") {
       return "to_pay";
@@ -301,9 +358,11 @@ class HomeController extends GetxController with BaseController {
     totalAmountController.clear();
     pendingAmountController.clear();
     installmentController.clear();
+    installmentDateController.clear();
     selectedType.value = "";
     selectedBalanceType.value = "";
     isRecurring.value = false;
+    selectedInstallmentDate.value = null;
   }
 
   // ==================== CONTACT PICKER ====================
@@ -363,8 +422,8 @@ class HomeController extends GetxController with BaseController {
     try {
       isRefreshing.value = true;
       _setCurrentDate();
-      // ✅ Fetch transactions from API
-      await fetchAllTransactions();
+      // ✅ Fetch contacts from API
+      await fetchAllContacts();
       // ✅ Also refresh reminders
       final reminderController = Get.find<ReminderController>();
       await reminderController.fetchAllReminders();
@@ -419,12 +478,102 @@ class HomeController extends GetxController with BaseController {
     }
   }
 
-  void onTransactionTap(TransactionModel transaction) {
-    Get.snackbar(
-      'Transaction',
-      'Viewing details for ${transaction.name}',
-      snackPosition: SnackPosition.BOTTOM,
+  // ==================== CONTACT TAP (Navigate to Transaction Screen) ====================
+
+  /// ✅ Navigate to Transaction Screen with contact data
+  void onContactTap(ContactModel contact) {
+    // Convert ContactModel to TransactionModel for navigation
+    final transactionModel = TransactionModel(
+      id: 0, // Not needed for display
+      userId: 0, // Not needed for display
+      name: contact.name,
+      phone: contact.phone,
+      personType: contact.personType,
+      transactionType: '', // Not needed for transaction screen display
+      totalAmount: 0.0, // Not needed for display
+      pendingAmount: contact.pendingAmount.toDouble(),
+      paymentType: contact.balanceType == 'you_will_pay' ? 'to_pay' : 'to_receive',
+      isRecurring: false,
+      installmentAmount: null,
+      installmentDate: null,
+      date: DateTime.now().toString(),
+      note: null,
+      createdAt: contact.lastTransaction,
+      updatedAt: contact.lastTransaction,
     );
-    // TODO: Navigate to transaction detail screen
+
+    Get.toNamed(
+      RouteName.transactionScreen,
+      arguments: {
+        'transaction': transactionModel,
+      },
+    );
   }
 }
+
+
+// @override
+// void onInit() {
+//   super.onInit();
+//   _setCurrentDate();
+//   // ✅ Load transactions from API
+//   fetchAllTransactions();
+//   // ✅ Send FCM token on app start (if user is logged in)
+//   _sendFcmTokenInBackground();
+//
+//   ever(isCreditor, (_) {
+//     selectedFilter.value = filters.first;
+//   });
+// }
+// Future<void> fetchAllTransactions() async {
+//   try {
+//     isLoading.value = true;
+//
+//     final response = await _homeService.getAllTransactions<Map<String, dynamic>>();
+//     final model = GetTransactionsResponseModel.fromJson(response);
+//
+//     if (model.success) {
+//       // Save summary
+//       summary.value = model.summary;
+//
+//       // Separate creditors and debitors based on person_type
+//       creditorsList.clear();
+//       debitorsList.clear();
+//
+//       for (var transaction in model.data) {
+//         // ✅ Updated to use person_type instead of type
+//         if (transaction.personType.toLowerCase() == 'creditor') {
+//           creditorsList.add(transaction);
+//         } else if (transaction.personType.toLowerCase() == 'debtor') {
+//           debitorsList.add(transaction);
+//         }
+//       }
+//
+//       print('✅ Fetched ${model.data.length} transactions');
+//       print('Creditors: ${creditorsList.length}');
+//       print('Debitors: ${debitorsList.length}');
+//     } else {
+//       print('❌ Failed to fetch transactions: ${model.message}');
+//     }
+//   } catch (e) {
+//     handleError(e);
+//   } finally {
+//     isLoading.value = false;
+//   }
+// }
+
+// Future<void> refreshData() async {
+//   try {
+//     isRefreshing.value = true;
+//     _setCurrentDate();
+//     // ✅ Fetch transactions from API
+//     await fetchAllTransactions();
+//     // ✅ Also refresh reminders
+//     final reminderController = Get.find<ReminderController>();
+//     await reminderController.fetchAllReminders();
+//   } catch (e) {
+//     print('Refresh error: $e');
+//   } finally {
+//     isRefreshing.value = false;
+//   }
+// }

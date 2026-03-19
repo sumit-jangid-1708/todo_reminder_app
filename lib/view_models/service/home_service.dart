@@ -18,4 +18,8 @@ class HomeService {
     );
   }
 
+  Future<T> getContacts<T>()async{
+    return await _apiService.getApi<T>(AppUrl.getContacts);
+  }
+
 }
