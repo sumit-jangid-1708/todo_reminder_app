@@ -21,15 +21,13 @@ class StatementModel {
       message: json['message'] ?? '',
       contact: Contact.fromJson(json['contact'] ?? {}),
       filter: json['filter'] ?? '',
-      balanceSummary:
-      BalanceSummary.fromJson(json['balance_summary'] ?? {}),
+      balanceSummary: BalanceSummary.fromJson(json['balance_summary'] ?? {}),
       data: (json['data'] as List? ?? [])
           .map((e) => StatementDateData.fromJson(e))
           .toList(),
     );
   }
 }
-
 
 class Contact {
   final String name;
@@ -70,7 +68,7 @@ class BalanceSummary {
 
 class StatementDateData {
   final String date;
-  final List<TransactionModel> transactions;
+  final List<StatementTransaction> transactions;
 
   StatementDateData({
     required this.date,
@@ -81,13 +79,13 @@ class StatementDateData {
     return StatementDateData(
       date: json['date'] ?? '',
       transactions: (json['transactions'] as List? ?? [])
-          .map((e) => TransactionModel.fromJson(e))
+          .map((e) => StatementTransaction.fromJson(e))
           .toList(),
     );
   }
 }
 
-class TransactionModel {
+class StatementTransaction {
   final int id;
   final String transactionType;
   final String direction;
@@ -97,7 +95,7 @@ class TransactionModel {
   final String note;
   final String time;
 
-  TransactionModel({
+  StatementTransaction({
     required this.id,
     required this.transactionType,
     required this.direction,
@@ -108,8 +106,8 @@ class TransactionModel {
     required this.time,
   });
 
-  factory TransactionModel.fromJson(Map<String, dynamic> json) {
-    return TransactionModel(
+  factory StatementTransaction.fromJson(Map<String, dynamic> json) {
+    return StatementTransaction(
       id: json['id'] ?? 0,
       transactionType: json['transaction_type'] ?? '',
       direction: json['direction'] ?? '',
@@ -120,4 +118,10 @@ class TransactionModel {
       time: json['time'] ?? '',
     );
   }
+
+  // ✅ Helper to check if transaction is "given" (right side)
+  bool get isGiven => transactionType.toLowerCase() == 'given';
+
+  // ✅ Helper to check if transaction is "received" (left side)
+  bool get isReceived => transactionType.toLowerCase() == 'received';
 }

@@ -148,7 +148,7 @@ class WeeklyCalendar extends StatelessWidget {
         height: 85,
         child: ListView.builder(
           scrollDirection: Axis.horizontal,
-          physics: const NeverScrollableScrollPhysics(),
+          // physics: const NeverScrollableScrollPhysics(),
           itemCount: weekDays.length,
           itemBuilder: (context, index) {
             final dayData = weekDays[index];

@@ -87,15 +87,12 @@ class PayableData {
     return 0.0;
   }
 
-  /// Formatted Amount (₹1,00,000)
+  /// Formatted Amount
   String get formattedPending {
-    return "₹${totalPending.toStringAsFixed(0).replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-          (Match m) => '${m[1]},',
-    )}";
+    return "₹${totalPending.toStringAsFixed(0)}";
   }
 
-  /// Due Status ke hisaab se readable text
+  /// Due Status text
   String get dueStatusText {
     switch (dueStatus.toLowerCase()) {
       case 'overdue':
@@ -109,12 +106,11 @@ class PayableData {
     }
   }
 
-/// Optional: Due status ke hisaab se color (Flutter mein use karne ke liye)
-// Color get dueStatusColor {
-//   switch (dueStatus.toLowerCase()) {
-//     case 'overdue': return Colors.red;
-//     case 'due_soon': return Colors.orange;
-//     default: return Colors.green;
-//   }
-// }
+  /// Due date display
+  String get dueDisplay {
+    if (upcomingDue != null && upcomingDue!.isNotEmpty) {
+      return 'Due: $upcomingDue';
+    }
+    return 'No Due';
+  }
 }

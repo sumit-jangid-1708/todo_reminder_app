@@ -1,8 +1,7 @@
-// lib/view_models/controller/transaction_controller.dart
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:todo_reminder/model/quick_transaction_response_model.dart';
+import 'package:todo_reminder/model/statement_model.dart';
 import 'package:todo_reminder/res/components/app_alerts.dart';
 import 'package:todo_reminder/view_models/controller/base_controller.dart';
 import 'package:todo_reminder/view_models/service/transaction_service.dart';
@@ -16,12 +15,16 @@ class TransactionController extends GetxController with BaseController {
 
   // Loading State
   final RxBool isLoading = false.obs;
+  final RxBool isLoadingStatement = false.obs;
 
   // Transaction Data (passed from TransactionScreen)
   String contactName = '';
   String contactPhone = '';
   String personType = '';      // "creditor" or "debtor"
   String transactionType = ''; // "given" or "received"
+
+  // ✅ Statement Data
+  final Rx<StatementModel?> statementData = Rx<StatementModel?>(null);
 
   @override
   void onClose() {
@@ -50,6 +53,38 @@ class TransactionController extends GetxController with BaseController {
     print('   Phone: $phone');
     print('   Person Type: $personType');
     print('   Transaction Type: $transactionType');
+  }
+
+  // ==================== SET PERSON TYPE ====================
+
+  /// ✅ NEW: Set person type from transaction model
+  /// Called when TransactionScreen loads
+  void setPersonType(String type) {
+    personType = type;
+    print('📝 Person type set: $personType');
+  }
+
+  // ==================== FETCH STATEMENT ====================
+
+  /// ✅ Fetch transaction statement for contact
+  Future<void> fetchStatement(String phone) async {
+    try {
+      isLoadingStatement.value = true;
+
+      final response = await _transactionService.getStatement<Map<String, dynamic>>(phone);
+      final model = StatementModel.fromJson(response);
+
+      if (model.success) {
+        statementData.value = model;
+        print('✅ Fetched statement: ${model.data.length} date groups');
+      } else {
+        print('❌ Failed to fetch statement: ${model.message}');
+      }
+    } catch (e) {
+      handleError(e);
+    } finally {
+      isLoadingStatement.value = false;
+    }
   }
 
   // ==================== QUICK TRANSACTION API ====================
@@ -138,6 +173,34 @@ class TransactionController extends GetxController with BaseController {
       return Colors.red;
     } else {
       return Colors.green;
+    }
+  }
+
+  // ✅ Get balance display
+  String get balanceLabel {
+    if (statementData.value == null) return '₹0';
+
+    final balance = statementData.value!.balanceSummary;
+    if (personType == 'creditor') {
+      return '₹${balance.youWillPay}';
+    } else {
+      return '₹${balance.youWillReceive}';
+    }
+  }
+
+  // ✅ FIXED: Check if personType is empty and use statement data as fallback
+  String get balanceText {
+    // If personType is not set, try to get it from statement data
+    String currentPersonType = personType;
+
+    if (currentPersonType.isEmpty && statementData.value != null) {
+      currentPersonType = statementData.value!.contact.personType;
+    }
+
+    if (currentPersonType == 'creditor') {
+      return 'You Will Pay';
+    } else {
+      return 'You Will Receive';
     }
   }
 }

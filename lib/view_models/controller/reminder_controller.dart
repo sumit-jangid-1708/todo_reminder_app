@@ -134,13 +134,37 @@ class ReminderController extends GetxController with BaseController {
     try {
       isLoading.value = true;
 
-      final Map<String, dynamic> data = {
-        "title": titleController.text.trim(),
-        "amount": int.tryParse(amountController.text.replaceAll(RegExp(r'[₹,\s]'), '')) ?? 0,
-        "reminder_date": DateFormat('yyyy-MM-dd').format(selectedDate.value!),
-        "reminder_before": int.parse(selectedReminderBefore.value),
-        "note": notesController.text.trim(),
-      };
+      // Build update data - only send fields that are provided
+      final Map<String, dynamic> data = {};
+
+      // Title
+      final title = titleController.text.trim();
+      if (title.isNotEmpty) {
+        data["title"] = title;
+      }
+
+      // Amount (required field based on API)
+      final amountText = amountController.text.replaceAll(RegExp(r'[₹,\s]'), '');
+      final amount = int.tryParse(amountText);
+      if (amount != null) {
+        data["amount"] = amount;
+      }
+
+      // Reminder date
+      if (selectedDate.value != null) {
+        data["reminder_date"] = DateFormat('yyyy-MM-dd').format(selectedDate.value!);
+      }
+
+      // Reminder before
+      final reminderBefore = int.tryParse(selectedReminderBefore.value);
+      if (reminderBefore != null) {
+        data["reminder_before"] = reminderBefore;
+      }
+
+      // Note (can be empty)
+      data["note"] = notesController.text.trim();
+
+      print('📤 Updating reminder $id with data: $data');
 
       final response = await _reminderService.updateReminder<Map<String, dynamic>>(id, data);
       final model = ReminderResponseModel.fromJson(response);
@@ -151,7 +175,7 @@ class ReminderController extends GetxController with BaseController {
 
         await fetchAllReminders();
 
-        await Future.delayed(const Duration(seconds: 1));
+        await Future.delayed(const Duration(milliseconds: 500));
         Get.back();
       } else {
         AppAlerts.error(model.message.isNotEmpty ? model.message : 'Failed to update reminder');
@@ -260,11 +284,26 @@ class ReminderController extends GetxController with BaseController {
   // ==================== LOAD REMINDER FOR EDIT ====================
 
   void loadReminderForEdit(ReminderData reminder) {
+    print('📝 Loading reminder for edit: ${reminder.id}');
+    print('Title: ${reminder.title}');
+    print('Amount: ${reminder.amount}');
+    print('Date: ${reminder.reminderDate}');
+    print('Note: ${reminder.note}');
+    print('Reminder Before: ${reminder.reminderBefore}');
+
     titleController.text = reminder.title;
-    amountController.text = '₹${reminder.amount}';
-    selectedDate.value = DateTime.parse(reminder.reminderDate);
-    dateController.text = DateFormat('dd MMMM yyyy').format(DateTime.parse(reminder.reminderDate));
+    amountController.text = reminder.amount.toString();
+
+    try {
+      selectedDate.value = DateTime.parse(reminder.reminderDate);
+      dateController.text = DateFormat('dd MMMM yyyy').format(DateTime.parse(reminder.reminderDate));
+    } catch (e) {
+      print('❌ Error parsing date: $e');
+    }
+
     notesController.text = reminder.note;
     selectedReminderBefore.value = reminder.reminderBefore.toString();
+
+    print('✅ Reminder loaded for editing');
   }
 }

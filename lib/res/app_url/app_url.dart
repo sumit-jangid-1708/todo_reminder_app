@@ -1,7 +1,9 @@
+// lib/res/app_url/app_url.dart
+
 class AppUrl {
   static const String baseUrl = "https://www.appUrl.com/api/v1/";
-  static const String localUrl = "https://mazda-pieces-lean-landing.trycloudflare.com/api/auth";
-  static const String localUrl2 = "https://mazda-pieces-lean-landing.trycloudflare.com/api";
+  static const String localUrl = "https://generator-geography-rational-media.trycloudflare.com/api/auth";
+  static const String localUrl2 = "https://generator-geography-rational-media.trycloudflare.com/api";
   static const String signIn = "$localUrl/sign-in";
   static const String signUp = "$localUrl/sign-up";
   static const String forgetPass = "$localUrl/forgot-password";
@@ -20,6 +22,11 @@ class AppUrl {
 
   static const String quickTransaction = "$localUrl2/quick/transaction";
   static const String getContacts = "$localUrl2/contacts";
+  static const String statements = "$localUrl2/contacts";
+
+  // ✅ NEW: Receivables and Payables
+  static const String receivables = "$localUrl2/contacts/receivables";
+  static const String payables = "$localUrl2/contacts/payables";
 
   static const String fcmToken = "$localUrl2/notifications/fcm-token";
 }

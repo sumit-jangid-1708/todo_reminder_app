@@ -79,7 +79,6 @@ class ReceivableData {
     );
   }
 
-  /// Helper method
   static double _parseDouble(dynamic value) {
     if (value == null) return 0.0;
     if (value is double) return value;
@@ -88,12 +87,12 @@ class ReceivableData {
     return 0.0;
   }
 
-  /// Optional: Formatted Amount
+  /// Formatted Amount
   String get formattedPending {
-    return "₹${totalPending.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}";
+    return "₹${totalPending.toStringAsFixed(0)}";
   }
 
-  /// Due Status ke hisaab se color aur text ke liye helper
+  /// Due Status text
   String get dueStatusText {
     switch (dueStatus.toLowerCase()) {
       case 'overdue':
@@ -105,5 +104,13 @@ class ReceivableData {
       default:
         return 'No Due';
     }
+  }
+
+  /// Due date display
+  String get dueDisplay {
+    if (upcomingDue != null && upcomingDue!.isNotEmpty) {
+      return 'Due: $upcomingDue';
+    }
+    return 'No Due';
   }
 }

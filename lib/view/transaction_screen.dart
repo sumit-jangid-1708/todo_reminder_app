@@ -2,35 +2,77 @@
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:intl/intl.dart';
+import 'package:todo_reminder/model/statement_model.dart';
 import 'package:todo_reminder/res/color/app_color.dart';
 import 'package:todo_reminder/res/components/custom_button.dart';
 import 'package:todo_reminder/res/routes/routes_names.dart';
 import 'package:todo_reminder/view_models/controller/transaction_controller.dart';
 import '../model/transaction_model.dart';
 
-class TransactionScreen extends StatelessWidget {
+class TransactionScreen extends StatefulWidget {
   const TransactionScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // ✅ Get transaction data passed from home screen
-    final arguments = Get.arguments as Map<String, dynamic>?;
-    final TransactionModel? transaction = arguments?['transaction'];
+  State<TransactionScreen> createState() => _TransactionScreenState();
+}
 
-    if (transaction == null) {
-      return Scaffold(
-        body: Center(
-          child: Text('No transaction data found'),
-        ),
-      );
+class _TransactionScreenState extends State<TransactionScreen> {
+  late TransactionController controller;
+
+  // Transaction data
+  late String name;
+  late String phone;
+  late String personType;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // ✅ Get arguments (can be TransactionModel or Map)
+    final arguments = Get.arguments as Map<String, dynamic>?;
+
+    // ✅ Handle both TransactionModel and Map formats
+    if (arguments != null && arguments.containsKey('transaction')) {
+      final transactionData = arguments['transaction'];
+
+      if (transactionData is TransactionModel) {
+        // ✅ Case 1: TransactionModel (from HomeScreen)
+        name = transactionData.name;
+        phone = transactionData.phone;
+        personType = transactionData.personType;
+      } else if (transactionData is Map<String, dynamic>) {
+        // ✅ Case 2: Map (from Receivable/Payable screens)
+        name = transactionData['name'] ?? '';
+        phone = transactionData['phone'] ?? '';
+        personType = transactionData['personType'] ?? '';
+      } else {
+        // Fallback
+        name = '';
+        phone = '';
+        personType = '';
+      }
+    } else {
+      // Fallback
+      name = '';
+      phone = '';
+      personType = '';
     }
 
-    // Dummy transaction list (will be replaced with API data later)
-    final List<Map<String, dynamic>> transactions = [
-      {"amount": "10", "time": "12:39PM", "isGiven": false},
-      {"amount": "10", "time": "12:39PM", "isGiven": true},
-    ];
+    // Initialize controller
+    controller = Get.put(TransactionController());
 
+    // ✅ Set person type before fetching statement
+    controller.setPersonType(personType);
+
+    // Fetch statement
+    if (phone.isNotEmpty) {
+      controller.fetchStatement(phone);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
 
@@ -81,7 +123,7 @@ class TransactionScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      transaction.name,
+                      name,
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
@@ -116,59 +158,138 @@ class TransactionScreen extends StatelessWidget {
 
       body: Column(
         children: [
-          // Date Chip
-          Padding(
-            padding: const EdgeInsets.only(top: 20, bottom: 12),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                border: Border.all(color: Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Text(
-                "05 Mar 2026",
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.black87,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ),
-
           // --- Transaction List ---
           Expanded(
-            child: transactions.isEmpty
-                ? _buildEmptyState()
-                : ListView.builder(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 8,
-              ),
-              itemCount: transactions.length,
-              itemBuilder: (context, index) {
-                final tx = transactions[index];
-                return _buildTransactionItem(tx);
-              },
-            ),
+            child: Obx(() {
+              if (controller.isLoadingStatement.value) {
+                return const Center(
+                  child: CircularProgressIndicator(color: AppColors.primary),
+                );
+              }
+
+              final statement = controller.statementData.value;
+              if (statement == null || statement.data.isEmpty) {
+                return _buildEmptyState();
+              }
+
+              // ✅ Sort date groups chronologically (oldest first)
+              final sortedDateGroups = List<StatementDateData>.from(statement.data);
+              sortedDateGroups.sort((a, b) => _compareDate(a.date, b.date));
+
+              // ✅ Display transactions grouped by date
+              return ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                itemCount: sortedDateGroups.length,
+                itemBuilder: (context, index) {
+                  final dateGroup = sortedDateGroups[index];
+                  return _buildDateGroup(dateGroup);
+                },
+              );
+            }),
           ),
 
           // --- Bottom Action Bar ---
-          _buildBottomActionBar(transaction),
+          _buildBottomActionBar(),
         ],
       ),
     );
   }
 
-  /// Transaction Item Widget
-  Widget _buildTransactionItem(Map<String, dynamic> tx) {
-    final bool isGiven = tx['isGiven'] as bool;
+  /// ✅ Compare date strings for sorting
+  int _compareDate(String dateA, String dateB) {
+    try {
+      final parsedA = _parseDate(dateA);
+      final parsedB = _parseDate(dateB);
+      return parsedA.compareTo(parsedB);
+    } catch (e) {
+      print('Error comparing dates: $dateA vs $dateB');
+      return 0;
+    }
+  }
 
+  /// ✅ Parse date string to DateTime
+  DateTime _parseDate(String date) {
+    try {
+      final parsed = DateFormat('dd MMM yyyy').parse(date);
+      return parsed;
+    } catch (e) {
+      print('Error parsing date: $date');
+      return DateTime.now();
+    }
+  }
+
+  /// ✅ Date Group Widget with Time Sorting
+  Widget _buildDateGroup(StatementDateData dateGroup) {
+    final sortedTransactions = List<StatementTransaction>.from(dateGroup.transactions);
+    sortedTransactions.sort((a, b) => _compareTime(a.time, b.time));
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 20, bottom: 12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              dateGroup.date,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.black87,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ),
+        ...sortedTransactions.map((tx) => _buildTransactionItem(tx)).toList(),
+      ],
+    );
+  }
+
+  /// ✅ Compare time strings for sorting
+  int _compareTime(String timeA, String timeB) {
+    try {
+      final parsedA = _parseTime(timeA);
+      final parsedB = _parseTime(timeB);
+      return parsedA.compareTo(parsedB);
+    } catch (e) {
+      print('Error comparing times: $timeA vs $timeB');
+      return 0;
+    }
+  }
+
+  /// ✅ Parse time string to DateTime
+  DateTime _parseTime(String time) {
+    final cleaned = time.trim().toUpperCase();
+    final regex = RegExp(r'(\d{1,2}):(\d{2})(AM|PM)');
+    final match = regex.firstMatch(cleaned);
+
+    if (match == null) {
+      throw FormatException('Invalid time format: $time');
+    }
+
+    int hour = int.parse(match.group(1)!);
+    final minute = int.parse(match.group(2)!);
+    final period = match.group(3)!;
+
+    if (period == 'PM' && hour != 12) {
+      hour += 12;
+    } else if (period == 'AM' && hour == 12) {
+      hour = 0;
+    }
+
+    return DateTime(2000, 1, 1, hour, minute);
+  }
+
+  /// ✅ Transaction Item Widget
+  Widget _buildTransactionItem(StatementTransaction tx) {
     return Align(
-      alignment: isGiven ? Alignment.centerRight : Alignment.centerLeft,
+      alignment: tx.isGiven ? Alignment.centerRight : Alignment.centerLeft,
       child: Column(
-        crossAxisAlignment: isGiven
+        crossAxisAlignment: tx.isGiven
             ? CrossAxisAlignment.end
             : CrossAxisAlignment.start,
         children: [
@@ -187,30 +308,47 @@ class TransactionScreen extends StatelessWidget {
                 ),
               ],
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+            child: Column(
+              crossAxisAlignment: tx.isGiven
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
               children: [
-                Icon(
-                  isGiven ? Icons.arrow_upward : Icons.arrow_downward,
-                  size: 16,
-                  color: isGiven ? AppColors.error : AppColors.success,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      tx.isGiven ? Icons.arrow_upward : Icons.arrow_downward,
+                      size: 16,
+                      color: tx.isGiven ? AppColors.error : AppColors.success,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      "₹${tx.totalAmount}",
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.black,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  "₹${tx['amount']}",
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.black,
+                if (tx.note.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    tx.note,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
           Padding(
             padding: const EdgeInsets.only(top: 2, left: 4, right: 4),
             child: Text(
-              tx['time'] as String,
+              tx.time,
               style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
             ),
           ),
@@ -246,7 +384,7 @@ class TransactionScreen extends StatelessWidget {
   }
 
   /// Bottom Action Bar
-  Widget _buildBottomActionBar(TransactionModel transaction) {
+  Widget _buildBottomActionBar() {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
       decoration: BoxDecoration(
@@ -266,12 +404,11 @@ class TransactionScreen extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Balance Row
-          Row(
+          Obx(() => Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                transaction.personType == 'creditor' ? 'You Will Pay' : 'You Will Receive',
+                controller.balanceText,
                 style: TextStyle(
                   color: Colors.grey.shade600,
                   fontSize: 13,
@@ -279,7 +416,7 @@ class TransactionScreen extends StatelessWidget {
                 ),
               ),
               Text(
-                "₹${transaction.pendingAmount.toStringAsFixed(0)}",
+                controller.balanceLabel,
                 style: const TextStyle(
                   color: AppColors.primary,
                   fontWeight: FontWeight.w700,
@@ -287,22 +424,15 @@ class TransactionScreen extends StatelessWidget {
                 ),
               ),
             ],
-          ),
-
+          )),
           const SizedBox(height: 16),
-
-          // Action Buttons
           Row(
             children: [
-              // ✅ Received Button (Outlined)
               Expanded(
                 child: CustomButton(
                   text: "Received",
                   icon: Icons.arrow_downward,
-                  onPressed: () => _navigateToPayment(
-                    transaction: transaction,
-                    transactionType: 'received',
-                  ),
+                  onPressed: () => _navigateToPayment('received'),
                   backgroundColor: Colors.white,
                   textColor: AppColors.primary,
                   iconColor: AppColors.primary,
@@ -315,18 +445,12 @@ class TransactionScreen extends StatelessWidget {
                   spacing: 8,
                 ),
               ),
-
               const SizedBox(width: 12),
-
-              // ✅ Given Button (Filled)
               Expanded(
                 child: CustomButton(
                   text: "Given",
                   icon: Icons.arrow_upward,
-                  onPressed: () => _navigateToPayment(
-                    transaction: transaction,
-                    transactionType: 'given',
-                  ),
+                  onPressed: () => _navigateToPayment('given'),
                   backgroundColor: AppColors.primary,
                   textColor: Colors.white,
                   iconColor: Colors.white,
@@ -345,29 +469,20 @@ class TransactionScreen extends StatelessWidget {
     );
   }
 
-  /// ✅ Navigate to Payment Screen with transaction data (FIXED)
-  void _navigateToPayment({
-    required TransactionModel transaction,
-    required String transactionType,
-  }) async {
-    // ✅ FIXED: Use Get.put instead of Get.find
-    // This creates the controller if it doesn't exist
-    final controller = Get.put(TransactionController());
-
+  /// ✅ Navigate to Payment Screen
+  void _navigateToPayment(String transactionType) async {
     controller.initializeTransaction(
-      name: transaction.name,
-      phone: transaction.phone,
-      personType: transaction.personType,
+      name: name,
+      phone: phone,
+      personType: personType,
       transactionType: transactionType,
     );
 
-    // Navigate to payment screen
     final result = await Get.toNamed(RouteName.paymentScreen);
 
-    // If payment was successful, refresh transaction list
     if (result == true) {
-      print('✅ Payment successful, refreshing transactions...');
-      // TODO: Add refresh logic here
+      print('✅ Payment successful, refreshing statement...');
+      await controller.fetchStatement(phone);
     }
   }
 
@@ -390,30 +505,26 @@ class TransactionScreen extends StatelessWidget {
               _buildMenuOption(
                 icon: Icons.delete_outline,
                 title: "Delete",
-                onTap: () {
-                  Navigator.pop(context);
-                  // Delete logic
-                },
+                onTap: () => Navigator.pop(context),
               ),
               _buildMenuOption(
                 icon: Icons.help_outline,
                 title: "Help & support",
-                onTap: () {
-                  Navigator.pop(context);
-                },
+                onTap: () => Navigator.pop(context),
               ),
               _buildMenuOption(
                 icon: Icons.assignment_outlined,
                 title: "Statement",
                 onTap: () {
-                  Get.toNamed(RouteName.statementScreen);
-                },
-              ),
-              _buildMenuOption(
-                icon: Icons.share_outlined,
-                title: "Share",
-                onTap: () {
                   Navigator.pop(context);
+                  Get.toNamed(
+                    RouteName.statementScreen,
+                    arguments: {
+                      'name': name,
+                      'phone': phone,
+                      'personType': personType,
+                    },
+                  );
                 },
               ),
               const SizedBox(height: 20),

@@ -4,9 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:todo_reminder/res/color/app_color.dart';
 import 'package:todo_reminder/res/components/custom_search_bar.dart';
-import 'package:todo_reminder/view_models/controller/payment_controller.dart';
+import 'package:todo_reminder/view_models/controller/payable_controller.dart';
 
-import '../res/components/widgets/payment_card_widget.dart';
 import '../res/components/widgets/summary_card_widget.dart';
 import '../res/components/widgets/tab_button_widget.dart';
 
@@ -15,7 +14,7 @@ class PayableScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final PaymentController controller = Get.put(PaymentController());
+    final PayableController controller = Get.put(PayableController());
 
     return Scaffold(
       backgroundColor: AppColors.gray,
@@ -57,17 +56,18 @@ class PayableScreen extends StatelessWidget {
                 const SizedBox(height: 16),
 
                 // Summary Card
-                const SummaryCard(
+                Obx(() => SummaryCard(
                   title: 'Total Payable',
-                  amount: '₹18,500',
-                ),
+                  subtitle: 'Upcoming Due',
+                  amount: controller.totalPayable,
+                )),
 
                 const SizedBox(height: 16),
 
                 // Search Bar
                 CustomSearchBar(
                   controller: controller.searchController,
-                  hintText: 'Search for fee...',
+                  hintText: 'Search by name or phone...',
                   onChanged: (value) {
                     // Already handled by controller listener
                   },
@@ -79,11 +79,10 @@ class PayableScreen extends StatelessWidget {
                 // Tabs
                 Obx(() => SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
-                  padding: EdgeInsets.symmetric(horizontal: 16),
                   child: Row(
                     children: [
                       TabButton(
-                        text: 'Payables',
+                        text: 'All',
                         isSelected: controller.selectedTab.value == 0,
                         onTap: () => controller.changeTab(0),
                       ),
@@ -95,7 +94,7 @@ class PayableScreen extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       TabButton(
-                        text: 'Upcoming Emi',
+                        text: 'Upcoming EMI',
                         isSelected: controller.selectedTab.value == 2,
                         onTap: () => controller.changeTab(2),
                       ),
@@ -106,92 +105,166 @@ class PayableScreen extends StatelessWidget {
             ),
           ),
 
-          // List Section
+          // List Section with Pull-to-Refresh
           Expanded(
-            child: Obx(() => ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                // Sample Payment Cards
-                PaymentCard(
-                  personName: 'Rahul Sharma',
-                  amount: '₹12,500',
-                  dueDate: 'Due: 15 March',
-                  showPayButton: controller.selectedTab.value == 0,
-                  showDuePaymentButton: controller.selectedTab.value == 1,
-                  showUpcomingEmiButton: controller.selectedTab.value == 2,
-                  showViewButton: true,
-                  onPayPressed: () => controller.handlePay('Rahul Sharma'),
-                  onDuePaymentPressed: () => controller.handleDuePayment('Rahul Sharma'),
-                  onUpcomingEmiPressed: () => controller.handleUpcomingEmi('Rahul Sharma'),
-                  onViewPressed: () => controller.handleView('Rahul Sharma'),
-                ),
+            child: Obx(() {
+              if (controller.isLoading.value) {
+                return const Center(
+                  child: CircularProgressIndicator(color: AppColors.primary),
+                );
+              }
 
-                PaymentCard(
-                  personName: 'Rahul Sharma',
-                  amount: '₹12,500',
-                  dueDate: 'Due: 15 March',
-                  showPayButton: controller.selectedTab.value == 0,
-                  showDuePaymentButton: controller.selectedTab.value == 1,
-                  showUpcomingEmiButton: controller.selectedTab.value == 2,
-                  showViewButton: true,
-                  onPayPressed: () => controller.handlePay('Rahul Sharma'),
-                  onDuePaymentPressed: () => controller.handleDuePayment('Rahul Sharma'),
-                  onUpcomingEmiPressed: () => controller.handleUpcomingEmi('Rahul Sharma'),
-                  onViewPressed: () => controller.handleView('Rahul Sharma'),
-                ),
+              if (controller.filteredList.isEmpty) {
+                return _buildEmptyState();
+              }
 
-                PaymentCard(
-                  personName: 'Rahul Sharma',
-                  amount: '₹12,500',
-                  dueDate: 'Due: 15 March',
-                  showPayButton: controller.selectedTab.value == 0,
-                  showDuePaymentButton: controller.selectedTab.value == 1,
-                  showUpcomingEmiButton: controller.selectedTab.value == 2,
-                  showViewButton: true,
-                  onPayPressed: () => controller.handlePay('Rahul Sharma'),
-                  onDuePaymentPressed: () => controller.handleDuePayment('Rahul Sharma'),
-                  onUpcomingEmiPressed: () => controller.handleUpcomingEmi('Rahul Sharma'),
-                  onViewPressed: () => controller.handleView('Rahul Sharma'),
+              return RefreshIndicator(
+                onRefresh: () => controller.fetchPayables(),
+                color: AppColors.primary,
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(20),
+                  itemCount: controller.filteredList.length,
+                  itemBuilder: (context, index) {
+                    final item = controller.filteredList[index];
+                    return _buildPayableCard(item, controller);
+                  },
                 ),
-
-                PaymentCard(
-                  personName: 'Rahul Sharma',
-                  amount: '₹12,500',
-                  dueDate: 'Due: 15 March',
-                  showPayButton: controller.selectedTab.value == 0,
-                  showDuePaymentButton: controller.selectedTab.value == 1,
-                  showUpcomingEmiButton: controller.selectedTab.value == 2,
-                  showViewButton: true,
-                  onPayPressed: () => controller.handlePay('Rahul Sharma'),
-                  onDuePaymentPressed: () => controller.handleDuePayment('Rahul Sharma'),
-                  onUpcomingEmiPressed: () => controller.handleUpcomingEmi('Rahul Sharma'),
-                  onViewPressed: () => controller.handleView('Rahul Sharma'),
-                ),
-
-                PaymentCard(
-                  personName: 'Rahul Sharma',
-                  amount: '₹12,500',
-                  dueDate: 'Due: 15 March',
-                  showPayButton: controller.selectedTab.value == 0,
-                  showDuePaymentButton: controller.selectedTab.value == 1,
-                  showUpcomingEmiButton: controller.selectedTab.value == 2,
-                  showViewButton: true,
-                  onPayPressed: () => controller.handlePay('Rahul Sharma'),
-                  onDuePaymentPressed: () => controller.handleDuePayment('Rahul Sharma'),
-                  onUpcomingEmiPressed: () => controller.handleUpcomingEmi('Rahul Sharma'),
-                  onViewPressed: () => controller.handleView('Rahul Sharma'),
-                ),
-              ],
-            )),
+              );
+            }),
           ),
         ],
       ),
+    );
+  }
 
-      // Floating Action Button
-      floatingActionButton: FloatingActionButton(
-        onPressed: controller.addPayable,
-        backgroundColor: AppColors.primary,
-        child: const Icon(Icons.add, color: AppColors.white),
+  /// Payable Card Widget
+  Widget _buildPayableCard(dynamic item, PayableController controller) {
+    return GestureDetector(
+      onTap: () => controller.navigateToTransaction(item),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Row(
+          children: [
+            // Left Section
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.name,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(
+                        item.formattedPending,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.black,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Text(
+                        "to pay",
+                        style: TextStyle(fontSize: 13, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    item.dueDisplay,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: item.dueStatus == 'overdue'
+                          ? Colors.red
+                          : Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Right Section: Amount + Status Badge
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  item.formattedPending,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.black,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _getStatusColor(item.dueStatus),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    item.dueStatusText,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Status Color Helper
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'overdue':
+        return Colors.red;
+      case 'due_soon':
+        return Colors.orange;
+      default:
+        return Colors.green;
+    }
+  }
+
+  /// Empty State
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.receipt_long_outlined,
+            size: 64,
+            color: Colors.grey.shade300,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            "No payables found",
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey.shade500,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }
