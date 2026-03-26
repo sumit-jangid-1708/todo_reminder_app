@@ -2,8 +2,8 @@
 
 class AppUrl {
   static const String baseUrl = "https://www.appUrl.com/api/v1/";
-  static const String localUrl = "https://generator-geography-rational-media.trycloudflare.com/api/auth";
-  static const String localUrl2 = "https://generator-geography-rational-media.trycloudflare.com/api";
+  static const String localUrl = "https://gear-cookbook-nor-devices.trycloudflare.com/api/auth";
+  static const String localUrl2 = "https://gear-cookbook-nor-devices.trycloudflare.com/api";
   static const String signIn = "$localUrl/sign-in";
   static const String signUp = "$localUrl/sign-up";
   static const String forgetPass = "$localUrl/forgot-password";
@@ -14,6 +14,8 @@ class AppUrl {
   static const String getAllTransaction = "$localUrl2/transactions";
   static const String reminders = "$localUrl2/reminders";
 
+  static const String updateProfile = '$localUrl/update-profile';
+  static const String deleteAccount = '$localUrl/delete-account';
   // Dynamic URLs
   static String getReminderById(int id) => "$reminders/$id";
   static String completeReminder(int id) => "$reminders/$id/complete";

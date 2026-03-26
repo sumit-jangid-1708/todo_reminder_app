@@ -15,22 +15,15 @@ class NetworkApiService implements BaseApiService {
   static const Duration _timeout = Duration(seconds: 20);
 
   /// Build headers with auth token
-  Future<Map<String, String>> _buildHeaders({
-    Map<String, String>? extra,
-  }) async {
-    final headers = <String, String>{
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    };
-
+  Future<Map<String, String>> _buildHeaders({Map<String, String>? extra}) async {
     final token = await _tokenStorage.getToken();
-    if (token != null && token.isNotEmpty) {
-      headers['Authorization'] = 'Bearer $token';
-    }
 
-    if (extra != null) {
-      headers.addAll(extra);
-    }
+    final headers = {
+      'Content-Type': 'application/json', // ✅ Important for DELETE with body
+      'Accept': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+      ...?extra,
+    };
 
     return headers;
   }
@@ -141,16 +134,24 @@ class NetworkApiService implements BaseApiService {
   Future<T> deleteApi<T>(
       String url, {
         Map<String, String>? headers,
+        Map<String, dynamic>? body, // ✅ Added body parameter
       }) async {
     if (kDebugMode) {
       debugPrint('🌐 DELETE Request URL: $url');
+      if (body != null) {
+        debugPrint('📦 DELETE Request Body: $body');
+      }
     }
 
     try {
       final mergedHeaders = await _buildHeaders(extra: headers);
 
       final response = await http
-          .delete(Uri.parse(url), headers: mergedHeaders)
+          .delete(
+        Uri.parse(url),
+        headers: mergedHeaders,
+        body: body != null ? jsonEncode(body) : null, // ✅ Body added
+      )
           .timeout(_timeout);
 
       return _handleResponse<T>(response);

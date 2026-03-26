@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:todo_reminder/res/color/app_color.dart'; // Apna path check kar lein
+import 'package:todo_reminder/res/color/app_color.dart';
 
 class CustomSearchBar extends StatelessWidget {
   final TextEditingController? controller;
@@ -21,7 +21,7 @@ class CustomSearchBar extends StatelessWidget {
       height: 50,
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(25), // Pill shape as per image
+        borderRadius: BorderRadius.circular(25),
         border: Border.all(color: AppColors.darkGray.withOpacity(0.5)),
         boxShadow: [
           BoxShadow(
@@ -45,7 +45,6 @@ class CustomSearchBar extends StatelessWidget {
           ),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 15),
-          // Clear button tabhi dikhega jab controller null nahi hoga
           suffixIcon: controller != null && controller!.text.isNotEmpty
               ? IconButton(
             icon: const Icon(Icons.clear, size: 18, color: Colors.grey),

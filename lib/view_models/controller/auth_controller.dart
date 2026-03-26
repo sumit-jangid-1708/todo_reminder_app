@@ -1,13 +1,17 @@
 // lib/view_models/controller/auth_controller.dart
 
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:todo_reminder/model/auth_models/auth_user_model.dart';
 
 import '../../data/storage/token_storage.dart';
 import '../../model/auth_models/forgot_password_model.dart';
+import '../../model/auth_models/profile_delete_response_model.dart';
+import '../../model/auth_models/profile_update_response_model.dart';
 import '../../model/auth_models/reset_password_model.dart';
 import '../../model/auth_models/sign_in_model.dart';
 import '../../model/auth_models/sign_up_model.dart';
@@ -23,20 +27,29 @@ class AuthController extends GetxController with BaseController {
   final AuthService _authService = AuthService();
   final TokenStorage _tokenStorage = TokenStorage();
   final GetStorage _storage = GetStorage();
+  final ImagePicker _imagePicker = ImagePicker();
 
   // Form Controllers
   final TextEditingController nameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmPasswordController =
-      TextEditingController();
+  TextEditingController();
   final TextEditingController otpController = TextEditingController();
+
+  // Profile Controllers
+  final TextEditingController profileNameController = TextEditingController();
+  final TextEditingController profileEmailController = TextEditingController();
+  final TextEditingController profilePasswordController = TextEditingController();
 
   // Reactive States
   final RxBool isLoading = false.obs;
   final RxBool agreeToTerms = false.obs;
   final RxBool isEmailValid = false.obs;
   final RxString passwordText = ''.obs;
+  final Rx<File?> profileImage = Rx<File?>(null);
+  final RxString profileAvatarUrl = ''.obs;
+
   // OTP Timer
   final RxInt otpTimer = 180.obs; // 3 minutes
   Timer? _timer;
@@ -52,6 +65,9 @@ class AuthController extends GetxController with BaseController {
     passwordController.addListener(() {
       passwordText.value = passwordController.text;
     });
+
+    // Load user data for profile
+    _loadUserProfile();
   }
 
   @override
@@ -61,8 +77,22 @@ class AuthController extends GetxController with BaseController {
     passwordController.dispose();
     confirmPasswordController.dispose();
     otpController.dispose();
+    profileNameController.dispose();
+    profileEmailController.dispose();
+    profilePasswordController.dispose();
     _timer?.cancel();
     super.onClose();
+  }
+
+  /// Load user profile data
+  void _loadUserProfile() {
+    final name = _storage.read('user_name') ?? '';
+    final email = _storage.read('user_email') ?? '';
+    final avatar = _storage.read('user_avatar') ?? '';
+
+    profileNameController.text = name;
+    profileEmailController.text = email;
+    profileAvatarUrl.value = avatar;
   }
 
   /// Validate email in real-time
@@ -71,7 +101,6 @@ class AuthController extends GetxController with BaseController {
     isEmailValid.value = Utils.isEmailValid(email) && email.isNotEmpty;
   }
 
-
   bool get isPasswordStrong {
     final password = passwordText.value;
 
@@ -79,6 +108,129 @@ class AuthController extends GetxController with BaseController {
         password.contains(RegExp(r'[A-Z]')) &&
         password.contains(RegExp(r'[0-9]'));
   }
+
+  // ==================== IMAGE PICKER ====================
+
+  Future<void> pickProfileImage() async {
+    try {
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 70,
+      );
+
+      if (pickedFile != null) {
+        profileImage.value = File(pickedFile.path);
+      }
+    } catch (e) {
+      AppAlerts.error('Failed to pick image');
+    }
+  }
+
+  // ==================== UPDATE PROFILE ====================
+
+  Future<void> updateProfile() async {
+    if (!_validateProfileInputs()) return;
+
+    try {
+      isLoading.value = true;
+
+      final response = await _authService.updateProfile<Map<String, dynamic>>(
+        name: profileNameController.text.trim(),
+        email: profileEmailController.text.trim(),
+        password: profilePasswordController.text.trim().isNotEmpty
+            ? profilePasswordController.text.trim()
+            : null,
+        avatarFile: profileImage.value,
+      );
+
+      final model = ProfileUpdateResponse.fromJson(response);
+
+      if (model.success) {
+        // Update local storage
+        if (model.data != null) {
+          await _storage.write('user_name', model.data!.user.name);
+          await _storage.write('user_email', model.data!.user.email);
+          await _storage.write('user_avatar', model.data!.avatarUrl);
+
+          profileAvatarUrl.value = model.data!.avatarUrl;
+          profilePasswordController.clear();
+          profileImage.value = null;
+        }
+
+        AppAlerts.success(model.message);
+      } else {
+        AppAlerts.error(model.message);
+      }
+    } catch (e) {
+      handleError(e);
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  bool _validateProfileInputs() {
+    final name = profileNameController.text.trim();
+    final email = profileEmailController.text.trim();
+
+    if (name.isEmpty) {
+      AppAlerts.error('Please enter your name');
+      return false;
+    }
+
+    if (name.length < 2) {
+      AppAlerts.error('Name must be at least 2 characters');
+      return false;
+    }
+
+    if (email.isEmpty) {
+      AppAlerts.error('Please enter your email');
+      return false;
+    }
+
+    if (!Utils.isEmailValid(email)) {
+      AppAlerts.error('Please enter a valid email address');
+      return false;
+    }
+
+    return true;
+  }
+
+  // ==================== DELETE ACCOUNT ====================
+
+  Future<void> deleteAccount(String password) async {
+    if (password.isEmpty) {
+      AppAlerts.error('Please enter your password');
+      return;
+    }
+
+    try {
+      isLoading.value = true;
+
+      final response = await _authService.deleteAccount<Map<String, dynamic>>(
+        password,
+      );
+
+      final model = ProfileDeleteResponse.fromJson(response);
+
+      if (model.success) {
+        // Clear all data
+        await _tokenStorage.clearTokens();
+        await _storage.erase();
+
+        AppAlerts.success(model.message);
+
+        await Future.delayed(const Duration(milliseconds: 500));
+        Get.offAllNamed(RouteName.welcome);
+      } else {
+        AppAlerts.error(model.message);
+      }
+    } catch (e) {
+      handleError(e);
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   // ==================== SIGN UP ====================
 
   Future<void> signUp() async {
@@ -440,9 +592,9 @@ class AuthController extends GetxController with BaseController {
   }
 
   void _handleValidationErrors(
-    Map<String, List<String>>? errors,
-    String fallbackMessage,
-  ) {
+      Map<String, List<String>>? errors,
+      String fallbackMessage,
+      ) {
     if (errors != null && errors.isNotEmpty) {
       final firstErrorKey = errors.keys.first;
       final firstErrorMessages = errors[firstErrorKey];
