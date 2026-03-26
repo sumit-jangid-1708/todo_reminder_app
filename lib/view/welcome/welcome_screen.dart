@@ -4,6 +4,7 @@ import 'package:todo_reminder/res/color/app_color.dart';
 import 'package:todo_reminder/res/components/custom_button.dart';
 import 'package:todo_reminder/res/routes/routes_names.dart';
 import 'package:todo_reminder/view/auth/sign_in_screen.dart';
+import '../../res/assets/images_assets.dart';
 import '../../res/styles/app_text_styles.dart';
 
 class WelcomeScreen extends StatelessWidget {
@@ -19,17 +20,38 @@ class WelcomeScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 120),
+              const SizedBox(height: 80),
+
               // Welcome Text
               const Text('Welcome', style: AppTextStyles.h1),
-              const Text('Start tracking your lending and borrowing easily. Never forget dues, EMI, or payments with smart reminders.', style: AppTextStyles.bodyMedium),
-              const SizedBox(height: 250),
-              CustomButton(text: "Sign in", onPressed: () {
-                Get.toNamed(RouteName.signIn);
-              },
-              height: 50,
+              const SizedBox(height: 10),
+              const Text(
+                  'Start tracking your lending and borrowing easily. Never forget dues, EMI, or payments with smart reminders.',
+                  style: AppTextStyles.bodyMedium
+              ),
+
+              // --- Image Section Start ---
+              Expanded(
+                child: Center(
+                  child: Image.asset(
+                    ImageAssets.welcomeBg,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+              // --- Image Section End ---
+
+              const SizedBox(height: 20),
+
+              CustomButton(
+                text: "Sign in",
+                onPressed: () {
+                  Get.toNamed(RouteName.signIn);
+                },
+                height: 50,
               ),
               const SizedBox(height: 20),
+
               // Footer Text
               Center(
                 child: Row(
@@ -61,7 +83,6 @@ class WelcomeScreen extends StatelessWidget {
                   ],
                 ),
               ),
-
               const SizedBox(height: 40),
             ],
           ),

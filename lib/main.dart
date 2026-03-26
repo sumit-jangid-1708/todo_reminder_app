@@ -31,7 +31,6 @@ Future<void> main() async {
   // ✅ Check if user is logged in
   final tokenStorage = TokenStorage();
   final isLoggedIn = await tokenStorage.isLoggedIn();
-
   runApp(MyApp(isLoggedIn: isLoggedIn));
 }
 

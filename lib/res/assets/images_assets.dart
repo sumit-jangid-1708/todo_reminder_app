@@ -5,4 +5,5 @@ abstract final class ImageAssets {
   static const String emptyList = 'assets/images/empty_list.png';
   static const String addIcon = 'assets/images/add_post.png';
   static const String notificationBell = 'assets/images/notification_bell.png';
+  static const String welcomeBg = 'assets/images/welcomebg.png';
 }
