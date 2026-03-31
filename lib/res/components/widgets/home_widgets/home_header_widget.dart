@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:todo_reminder/res/routes/routes_names.dart';
-
 import '../../../color/app_color.dart';
 
 class HomeHeader extends StatelessWidget {
@@ -46,7 +45,7 @@ class HomeHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Good Morning',
+                  'Welcome',
                   style: TextStyle(
                     color: AppColors.black,
                     fontSize: 12,
@@ -66,40 +65,40 @@ class HomeHeader extends StatelessWidget {
         ),
 
         // Right: EMI Button
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0xFFE0E0E0)),
-            borderRadius: BorderRadius.circular(50),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration: const BoxDecoration(
-                  color: AppColors.primary,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.timer_outlined,
-                  color: Colors.white,
-                  size: 13,
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                'EMI Payment',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
+        // Container(
+        //   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+        //   decoration: BoxDecoration(
+        //     color: Colors.white,
+        //     border: Border.all(color: const Color(0xFFE0E0E0)),
+        //     borderRadius: BorderRadius.circular(50),
+        //   ),
+        //   child: Row(
+        //     mainAxisSize: MainAxisSize.min,
+        //     children: [
+        //       Container(
+        //         width: 30,
+        //         height: 30,
+        //         decoration: const BoxDecoration(
+        //           color: AppColors.primary,
+        //           shape: BoxShape.circle,
+        //         ),
+        //         child: const Icon(
+        //           Icons.timer_outlined,
+        //           color: Colors.white,
+        //           size: 13,
+        //         ),
+        //       ),
+        //       const SizedBox(width: 8),
+        //       const Text(
+        //         'EMI Payment',
+        //         style: TextStyle(
+        //           fontSize: 13,
+        //           fontWeight: FontWeight.w500,
+        //         ),
+        //       ),
+        //     ],
+        //   ),
+        // ),
       ],
     );
   }

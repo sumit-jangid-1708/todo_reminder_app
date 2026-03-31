@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:todo_reminder/res/color/app_color.dart';
-
 import '../res/components/custom_search_bar.dart';
+
 class HelpAndSupportScreen extends StatelessWidget {
   const HelpAndSupportScreen({super.key});
 
@@ -14,124 +14,111 @@ class HelpAndSupportScreen extends StatelessWidget {
         backgroundColor: AppColors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.black, size: 20),
+          // Image ke hisab se back icon
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black, size: 18),
           onPressed: () => Get.back(),
         ),
         title: const Text(
           "Help & Support",
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          style: TextStyle(
+              color: Colors.black,
+              fontSize: 20,
+              fontWeight: FontWeight.w600
+          ),
         ),
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 25),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 10),
-            // Search Bar
-            const CustomSearchBar(hintText: "Search for help..."),
-
-            const SizedBox(height: 30),
-            const Text(
-              "Help Topics",
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
             const SizedBox(height: 15),
 
-            // Help Topics List
-            _buildTopicTile("Contacts", "Learn how to add contacts and track transactions"),
-            _buildTopicTile("Transactions", "Help with, adding, editing or deleting transaction"),
-            _buildTopicTile("EMI records", "Help with, adding, editing or deleting transaction"),
-            _buildTopicTile("Payment history", "Help with, adding, editing or deleting transaction"),
+            // Search Bar (Custom widget jo aapne banaya hai)
+            const CustomSearchBar(hintText: "Search for help..."),
 
-            const SizedBox(height: 10),
-            const Divider(thickness: 0.5),
-            const SizedBox(height: 20),
+            const SizedBox(height: 35),
 
             const Text(
               "Frequently Asked Questions?",
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87
+              ),
             ),
-            const SizedBox(height: 15),
-
-            // FAQ List
-            _buildFAQTile("How do I add a contact?"),
-            _buildFAQTile("How do I record a payment?"),
-            _buildFAQTile("How do reminders work?"),
 
             const SizedBox(height: 10),
-            const Divider(thickness: 0.5),
-            const SizedBox(height: 20),
 
-            const Text(
-              "Still need help?",
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 15),
-
-            // Contact Support Tiles
-            _buildSupportTile("Email Support", "Example@gmail.com"),
-            _buildSupportTile("Report a Problem", ""),
-
-            const SizedBox(height: 40),
-            // Footer Links
-            Center(
-              child: Wrap(
-                spacing: 10,
+            // FAQ List - Expanded use kiya hai taaki footer niche rahe
+            Expanded(
+              child: ListView(
+                physics: const BouncingScrollPhysics(),
                 children: [
-                  _buildFooterLink("Privacy Policy"),
-                  _buildFooterLink("Terms & Conditions"),
+                  _buildFAQTile("How do I add a contact?"),
+                  _buildFAQTile("How do I record a payment?"),
+                  _buildFAQTile("How do reminders work?"),
+                  _buildFAQTile("How do I add a contact?"),
+                  _buildFAQTile("How do I record a payment?"),
+                  _buildFAQTile("How do reminders work?"),
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+
+            // Footer Links (Privacy Policy & Terms)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: Center(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildFooterLink("Privacy Policy "),
+                    _buildFooterLink("Terms & Conditions"),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  // Topic Tile Helper
-  Widget _buildTopicTile(String title, String subtitle) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-      subtitle: Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-      trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.black),
-      onTap: () {},
-    );
-  }
-
-  // FAQ Tile Helper
+  // FAQ Tile Helper (Exact matching as per image)
   Widget _buildFAQTile(String question) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(question, style: const TextStyle(fontSize: 14, color: Colors.black87)),
-      trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.black),
-      onTap: () {},
-    );
-  }
-
-  // Support Tile Helper
-  Widget _buildSupportTile(String title, String trailingText) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(title, style: const TextStyle(fontSize: 14, color: Colors.black87)),
-          Text(trailingText, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-        ],
+    return Container(
+      decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: Colors.transparent)) // Border hata diya image ke hisab se
+      ),
+      child: ListTile(
+        contentPadding: EdgeInsets.zero,
+        title: Text(
+            question,
+            style: const TextStyle(
+                fontSize: 14,
+                color: Colors.black,
+                fontWeight: FontWeight.w400
+            )
+        ),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.black),
+        onTap: () {},
       ),
     );
   }
 
   // Footer Link Helper
   Widget _buildFooterLink(String text) {
-    return Text(
-      text,
-      style: const TextStyle(fontSize: 11, color: Colors.blue, fontWeight: FontWeight.w400),
+    return GestureDetector(
+      onTap: () {},
+      child: Text(
+        text,
+        style: TextStyle(
+            fontSize: 10,
+            color: Colors.blue.withOpacity(0.7),
+            fontWeight: FontWeight.w400
+        ),
+      ),
     );
   }
 }

@@ -49,19 +49,23 @@ class ReminderData {
 
   factory ReminderData.fromJson(Map<String, dynamic> json) {
     return ReminderData(
-      id: json['id'] ?? 0,
-      userId: json['user_id'] ?? 0,
+      id: int.tryParse(json['id'].toString()) ?? 0,
+      userId: int.tryParse(json['user_id'].toString()) ?? 0,
       title: json['title'] ?? '',
-      amount: json['amount'] ?? 0,
+      amount: int.tryParse(json['amount'].toString()) ?? 0,
       reminderDate: json['reminder_date'] ?? '',
-      reminderBefore: json['reminder_before'] ?? 0,
+      reminderBefore:
+      int.tryParse(json['reminder_before'].toString()) ?? 0,
       note: json['note'] ?? '',
       status: json['status'] ?? 'pending',
-      isNotified: json['is_notified'] == true || json['is_notified'] == 1,
+      isNotified: json['is_notified'] == true ||
+          json['is_notified'] == 1 ||
+          json['is_notified'] == "1",
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
     );
   }
+
 
   Map<String, dynamic> toJson() {
     return {

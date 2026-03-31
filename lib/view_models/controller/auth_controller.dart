@@ -7,7 +7,7 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:todo_reminder/model/auth_models/auth_user_model.dart';
-
+import 'package:google_sign_in/google_sign_in.dart';
 import '../../data/storage/token_storage.dart';
 import '../../model/auth_models/forgot_password_model.dart';
 import '../../model/auth_models/profile_delete_response_model.dart';
@@ -24,6 +24,7 @@ import '../../view_models/service/auth_service.dart';
 import 'base_controller.dart';
 
 class AuthController extends GetxController with BaseController {
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
   final AuthService _authService = AuthService();
   final TokenStorage _tokenStorage = TokenStorage();
   final GetStorage _storage = GetStorage();
@@ -385,6 +386,63 @@ class AuthController extends GetxController with BaseController {
     return true;
   }
 
+
+  // ==================== GOOGLE SIGN IN ====================
+
+  Future<void> signInWithGoogle() async {
+    try {
+      isLoading.value = true;
+
+      final GoogleSignInAccount? account =
+      await _googleSignIn.signIn();
+
+      if (account == null) {
+        isLoading.value = false;
+        return; // user cancelled
+      }
+
+      final GoogleSignInAuthentication auth =
+      await account.authentication;
+
+      final String? idToken = auth.idToken;
+
+      if (idToken == null) {
+        AppAlerts.error("Google token not found");
+        return;
+      }
+
+      // 🔥 Call backend
+      final response =
+      await _authService.googleLogin<Map<String, dynamic>>(idToken);
+
+      final model = LoginResponseModel.fromJson(response);
+
+      if (model.success) {
+        if (model.data?.token != null) {
+          await _tokenStorage.saveToken(model.data!.token);
+        }
+
+        if (model.data?.user != null) {
+          await _saveUserData(model.data!.user);
+        }
+
+        await NotificationService.sendFcmTokenToServer(forceUpdate: true);
+
+        AppAlerts.success(model.message);
+
+        await Future.delayed(const Duration(seconds: 1));
+        Get.offAllNamed(RouteName.homeScreen);
+      } else {
+        AppAlerts.error(model.message);
+      }
+    } catch (e) {
+      handleError(e);
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+
   // ==================== FORGOT PASSWORD ====================
 
   Future<void> forgotPassword() async {
@@ -627,7 +685,7 @@ class AuthController extends GetxController with BaseController {
       isLoading.value = true;
 
       // await _authService.logout<Map<String, dynamic>>();
-
+      await _googleSignIn.signOut();
       await _tokenStorage.clearTokens();
       await _storage.erase();
 
@@ -641,4 +699,7 @@ class AuthController extends GetxController with BaseController {
       isLoading.value = false;
     }
   }
+
+
+
 }

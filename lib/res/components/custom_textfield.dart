@@ -9,11 +9,13 @@ class CustomTextField extends StatefulWidget {
   final bool isValid;
   final TextInputType keyboardType;
   final String? Function(String?)? validator;
-  final int maxLines; // ✅ Fixed typo (was maxLine)
-  final int? minLines; // ✅ Added minLines
-  final TextAlign textAlign; // ✅ Added textAlign
-  final bool enabled; // ✅ Added enabled
-  final void Function(String)? onChanged; // ✅ Added onChanged
+  final int maxLines;
+  final int? minLines;
+  final TextAlign textAlign;
+  final bool enabled;
+  final bool readOnly;           // ✅ NEW
+  final Widget? suffixIcon;      // ✅ NEW
+  final void Function(String)? onChanged;
 
   const CustomTextField({
     super.key,
@@ -24,11 +26,13 @@ class CustomTextField extends StatefulWidget {
     this.isValid = false,
     this.keyboardType = TextInputType.text,
     this.validator,
-    this.maxLines = 1, // ✅ Default 1 line
-    this.minLines, // ✅ Optional minLines
-    this.textAlign = TextAlign.start, // ✅ Default left align
-    this.enabled = true, // ✅ Default enabled
-    this.onChanged, // ✅ Optional callback
+    this.maxLines = 1,
+    this.minLines,
+    this.textAlign = TextAlign.start,
+    this.enabled = true,
+    this.readOnly = false,        // ✅ Default false
+    this.suffixIcon,              // ✅ Optional
+    this.onChanged,
   });
 
   @override
@@ -40,6 +44,30 @@ class _CustomTextFieldState extends State<CustomTextField> {
 
   @override
   Widget build(BuildContext context) {
+    // Suffix icon priority:
+    // 1. Password toggle  2. Custom suffixIcon  3. isValid check icon
+    Widget? resolvedSuffix;
+    if (widget.isPassword) {
+      resolvedSuffix = IconButton(
+        icon: Icon(
+          _obscure
+              ? Icons.visibility_off_outlined
+              : Icons.visibility_outlined,
+          color: AppColors.primary,
+          size: 20,
+        ),
+        onPressed: () => setState(() => _obscure = !_obscure),
+      );
+    } else if (widget.suffixIcon != null) {
+      resolvedSuffix = widget.suffixIcon;
+    } else if (widget.isValid) {
+      resolvedSuffix = const Icon(
+        Icons.check_circle_outline,
+        color: AppColors.success,
+        size: 20,
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -59,67 +87,56 @@ class _CustomTextFieldState extends State<CustomTextField> {
           validator: widget.validator,
           keyboardType: widget.keyboardType,
           obscureText: widget.isPassword ? _obscure : false,
-          maxLines: widget.isPassword ? 1 : widget.maxLines, // ✅ Password always single line
-          minLines: widget.minLines, // ✅ Added minLines
-          textAlign: widget.textAlign, // ✅ Added textAlign
-          enabled: widget.enabled, // ✅ Added enabled
-          onChanged: widget.onChanged, // ✅ Added onChanged
-          style: const TextStyle(fontSize: 15, color: AppColors.black),
+          maxLines: widget.isPassword ? 1 : widget.maxLines,
+          minLines: widget.minLines,
+          textAlign: widget.textAlign,
+          enabled: widget.enabled,
+          readOnly: widget.readOnly, // ✅
+          onChanged: widget.onChanged,
+          style: TextStyle(
+            fontSize: 15,
+            color: (widget.readOnly || !widget.enabled)
+                ? Colors.grey.shade600
+                : AppColors.black,
+          ),
           decoration: InputDecoration(
             filled: true,
-            fillColor: widget.enabled
-                ? AppColors.white
-                : Colors.grey.shade200, // ✅ Disabled color
+            fillColor: (widget.readOnly || !widget.enabled)
+                ? Colors.grey.shade100
+                : AppColors.white,
             hintText: widget.hintText,
-            hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 14),
-
-            // Suffix Icon Logic
-            suffixIcon: widget.isPassword
-                ? IconButton(
-              icon: Icon(
-                _obscure
-                    ? Icons.visibility_off_outlined
-                    : Icons.visibility_outlined,
-                color: AppColors.primary,
-                size: 20,
-              ),
-              onPressed: () => setState(() => _obscure = !_obscure),
-            )
-                : (widget.isValid
-                ? const Icon(
-              Icons.check_circle_outline,
-              color: AppColors.success,
-              size: 20,
-            )
-                : null),
-
-            // Borders
+            hintStyle:
+            TextStyle(color: Colors.grey.shade500, fontSize: 14),
+            suffixIcon: resolvedSuffix,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade200, width: 1),
+              borderSide:
+              BorderSide(color: Colors.grey.shade200, width: 1),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
-                color: Color(0xFF4A80F0),
-                width: 1.5,
-              ),
+              borderSide: widget.readOnly
+                  ? BorderSide(color: Colors.grey.shade200, width: 1)
+                  : const BorderSide(color: Color(0xFF4A80F0), width: 1.5),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Colors.redAccent, width: 1),
+              borderSide:
+              const BorderSide(color: Colors.redAccent, width: 1),
             ),
             focusedErrorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+              borderSide:
+              const BorderSide(color: Colors.redAccent, width: 1.5),
             ),
-            disabledBorder: OutlineInputBorder( // ✅ Added disabled border
+            disabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
+              borderSide:
+              BorderSide(color: Colors.grey.shade300, width: 1),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,

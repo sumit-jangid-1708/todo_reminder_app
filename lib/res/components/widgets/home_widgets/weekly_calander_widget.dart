@@ -39,7 +39,7 @@ class WeeklyCalendar extends StatelessWidget {
       child: Column(
         children: [
           // Top Section: Icon and Create Reminder Button
-          _buttonsCalaRem(),
+          _buttonsCalaRem(reminderController),
           const SizedBox(height: 10),
 
           // Middle Section: Week Days Row
@@ -62,13 +62,25 @@ class WeeklyCalendar extends StatelessWidget {
     );
   }
 
-  Widget _buttonsCalaRem() {
+  Widget _buttonsCalaRem(ReminderController reminderController) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        // Calendar icon button
         CustomButton(
           onPressed: () {
+            // ✅ Reminder dates ko EventMarker me convert karo
+            final List<DateTime> reminderDates = reminderController
+                .allReminders
+                .map((r) {
+              try {
+                return DateTime.parse(r.reminderDate);
+              } catch (e) {
+                return null;
+              }
+            })
+                .whereType<DateTime>()
+                .toList();
+
             Get.dialog(
               Dialog(
                 child: SizedBox(
@@ -79,7 +91,8 @@ class WeeklyCalendar extends StatelessWidget {
                     locale: LocaleType.en,
                     displayFullMonthName: true,
                     theme: LightTheme(),
-                    eventMarkers: [],
+                    // ✅ Reminder dates highlight hongi
+                    eventMarkers: reminderDates,
                   ),
                 ),
               ),
@@ -92,9 +105,9 @@ class WeeklyCalendar extends StatelessWidget {
           iconColor: AppColors.white,
         ),
 
-        // Create Reminder button
         CustomButton(
           onPressed: () {
+            Get.find<ReminderController>().clearForm();
             Get.toNamed(RouteName.createReminder);
           },
           height: 38,

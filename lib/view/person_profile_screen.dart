@@ -1,18 +1,162 @@
+// lib/view/person_profile_screen.dart
+
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:todo_reminder/res/color/app_color.dart';
-import '../res/components/custom_textfield.dart'; // Apna path check kar lein
+import 'package:todo_reminder/res/components/custom_button.dart';
+import 'package:todo_reminder/res/components/custom_textfield.dart';
+import 'package:todo_reminder/view_models/controller/transaction_controller.dart';
 
-class PersonProfileScreen extends StatelessWidget {
+import '../res/components/widgets/custom_profile_picker.dart';
+
+class PersonProfileScreen extends StatefulWidget {
   const PersonProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // Controllers for the fields
-    final nameController = TextEditingController(text: "Neha sharma");
-    final phoneController = TextEditingController(text: "+91 987876765768");
-    final addressController = TextEditingController(text: "Address");
+  State<PersonProfileScreen> createState() => _PersonProfileScreenState();
+}
 
+class _PersonProfileScreenState extends State<PersonProfileScreen> {
+  late TransactionController controller;
+
+  // Text controllers for editable fields
+  final TextEditingController nameController = TextEditingController();
+  final TextEditingController addressController = TextEditingController();
+
+  // The phone number for this contact (passed via Get.arguments or from controller)
+  late String phone;
+
+  @override
+  void initState() {
+    super.initState();
+
+    controller = Get.find<TransactionController>();
+
+    // Phone can come via Get.arguments OR from the controller (set in TransactionScreen)
+    final args = Get.arguments as Map<String, dynamic>?;
+    phone = args?['phone'] ?? controller.contactPhone;
+
+    // Fetch the profile data
+    _loadProfile();
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    addressController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadProfile() async {
+    await controller.fetchContactProfile(phone);
+
+    // Once loaded, populate the text fields
+    final profile = controller.profileData.value;
+    if (profile != null) {
+      nameController.text = profile.name;
+      addressController.text = profile.address ?? '';
+    }
+  }
+
+  /// Opens bottom sheet to pick image from camera or gallery
+  Future<void> _pickImage() async {
+    final ImagePicker picker = ImagePicker();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('Camera'),
+              onTap: () async {
+                Navigator.pop(context);
+                final XFile? file = await picker.pickImage(
+                  source: ImageSource.camera,
+                );
+                if (file != null) {
+                  controller.selectedAvatarFile.value = File(file.path);
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Gallery'),
+              onTap: () async {
+                Navigator.pop(context);
+                final XFile? file = await picker.pickImage(
+                  source: ImageSource.gallery,
+                );
+                if (file != null) {
+                  controller.selectedAvatarFile.value = File(file.path);
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Confirm delete dialog
+  void _showDeleteConfirmation() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Delete Contact',
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          'Are you sure you want to delete "${nameController.text}"? '
+          'This will also delete all their transactions.',
+          style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.black54),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              controller.deleteContact(phone);
+            },
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.redAccent),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.white,
       appBar: AppBar(
@@ -23,119 +167,240 @@ class PersonProfileScreen extends StatelessWidget {
           onPressed: () => Get.back(),
         ),
         title: const Text(
-          "Profile",
+          'Profile',
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
       ),
-      body: SingleChildScrollView( // Added scroll view to avoid overflow with keyboard
-        child: Padding(
+      body: Obx(() {
+        // ── Loading State ──────────────────────────────────────────
+        if (controller.isLoadingProfile.value) {
+          return const Center(
+            child: CircularProgressIndicator(color: AppColors.primary),
+          );
+        }
+
+        // ── Populate fields once data arrives ──────────────────────
+        final profile = controller.profileData.value;
+        if (profile != null) {
+          if (nameController.text.isEmpty) {
+            nameController.text = profile.name;
+          }
+          if (addressController.text.isEmpty) {
+            addressController.text = profile.address ?? '';
+          }
+        }
+
+        // ── Content ───────────────────────────────────────────────
+        return SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 20),
 
-              // --- Profile Image ---
-              Center(
-                child: Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 55,
-                      backgroundColor: AppColors.primary.withOpacity(0.7),
-                      child: const Icon(Icons.person_outline, size: 60, color: Colors.white),
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
-                        ),
-                        child: const Icon(Icons.camera_alt, size: 18, color: Colors.black87),
+              // ── Profile Image ────────────────────────────────────
+              Obx(() {
+                final pickedFile = controller.selectedAvatarFile.value;
+                // Determine the image path to show:
+                // 1. Newly picked file takes priority
+                // 2. Existing avatar URL from API
+                final String? imagePath = pickedFile != null
+                    ? pickedFile.path
+                    : profile?.avatarUrl;
+
+                return CustomProfilePicker(
+                  imagePath: imagePath,
+                  onCameraTap: _pickImage,
+                );
+              }),
+
+              const SizedBox(height: 32),
+
+              // ── Balance Summary ──────────────────────────────────
+              if (profile != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildStat(
+                        'Given',
+                        '₹${profile.totalGiven}',
+                        AppColors.error,
                       ),
+                      _buildDivider(),
+                      _buildStat(
+                        'Received',
+                        '₹${profile.totalReceived}',
+                        AppColors.success,
+                      ),
+                      _buildDivider(),
+                      _buildStat(
+                        profile.balanceType == 'settled'
+                            ? 'Settled'
+                            : profile.balanceType == 'you_will_pay'
+                            ? 'You Pay'
+                            : 'You Get',
+                        profile.balanceType == 'settled'
+                            ? '—'
+                            : '₹${profile.balance}',
+                        profile.balanceType == 'settled'
+                            ? Colors.grey
+                            : profile.balanceType == 'you_will_pay'
+                            ? AppColors.error
+                            : AppColors.success,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 28),
+              ],
+
+              // ── Name Field ───────────────────────────────────────
+              CustomTextField(
+                controller: nameController,
+                hintText: 'Enter name',
+              ),
+
+              const SizedBox(height: 24),
+
+              const Text(
+                'Contact Information',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Phone (read-only)
+              CustomTextField(
+                controller: TextEditingController(text: phone),
+                hintText: 'Phone number',
+                keyboardType: TextInputType.phone,
+                readOnly: true,
+                suffixIcon: const Icon(
+                  Icons.lock_outline,
+                  size: 16,
+                  color: Colors.grey,
+                ),
+              ),
+
+              const SizedBox(height: 14),
+
+              // Address
+              CustomTextField(
+                controller: addressController,
+                hintText: 'Enter address',
+              ),
+
+              const SizedBox(height: 28),
+
+              // ── Delete Option ────────────────────────────────────
+              Obx(
+                () => InkWell(
+                  onTap: controller.isDeletingContact.value
+                      ? null
+                      : _showDeleteConfirmation,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        controller.isDeletingContact.value
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.redAccent,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.delete,
+                                color: Colors.redAccent,
+                                size: 20,
+                              ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Delete Contact',
+                          style: TextStyle(
+                            color: Colors.redAccent,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
 
               const SizedBox(height: 40),
 
-              // --- Name Field ---
-              CustomTextField(
-                controller: nameController,
-                hintText: "Enter your name",
-              ),
-
-              const SizedBox(height: 25),
-              const Text(
-                "Contact Information",
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.black87),
-              ),
-              const SizedBox(height: 15),
-
-              // --- Phone Number Field ---
-              CustomTextField(
-                controller: phoneController,
-                hintText: "Phone number",
-                keyboardType: TextInputType.phone,
-              ),
-
-              const SizedBox(height: 15),
-
-              // --- Address Field ---
-              CustomTextField(
-                controller: addressController,
-                hintText: "Enter address",
-                maxLines: 1, // Aap chahen to multi-line ke liye ise badha sakte hain
-              ),
-
-              const SizedBox(height: 25),
-
-              // --- Delete Option ---
-              InkWell(
-                onTap: () {
-                  // Delete logic
-                },
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.delete, color: Colors.redAccent, size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      "Delete",
-                      style: TextStyle(color: Colors.redAccent, fontSize: 14, fontWeight: FontWeight.w500),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 50), // Spacer ki jagah fixed height scroll view mein better hai
-
-              // --- Save Changes Button ---
-              ElevatedButton(
-                onPressed: () {
-                  // Save logic
-                },
-                style: ElevatedButton.styleFrom(
+              // ── Save Button ──────────────────────────────────────
+              Obx(
+                () => CustomButton(
+                  text: 'Save Changes',
+                  onPressed: () {
+                    controller.updateContactProfile(
+                      phone: phone,
+                      name: nameController.text,
+                      address: addressController.text.trim().isEmpty
+                          ? null
+                          : addressController.text.trim(),
+                      avatarFile: controller.selectedAvatarFile.value,
+                    );
+                  },
+                  isLoading: controller.isSavingProfile.value,
                   backgroundColor: AppColors.primary,
-                  minimumSize: const Size(double.infinity, 55),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                  elevation: 0,
-                ),
-                child: const Text(
-                  "Save Changes",
-                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                  textColor: Colors.white,
+                  height: 55,
+                  borderRadius: 30,
+                  fontSize: 16,
                 ),
               ),
-              const SizedBox(height: 20),
+
+              const SizedBox(height: 28),
             ],
           ),
-        ),
-      ),
+        );
+      }),
     );
+  }
+
+  Widget _buildStat(String label, String value, Color valueColor) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: valueColor,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDivider() {
+    return Container(width: 1, height: 32, color: Colors.grey.shade200);
   }
 }

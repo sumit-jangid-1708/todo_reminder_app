@@ -45,7 +45,7 @@ class PaymentScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              controller.contactName,
+              controller.contactName.value ,
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             Text(

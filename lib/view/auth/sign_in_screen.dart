@@ -122,7 +122,7 @@ class SignInScreen extends StatelessWidget {
                     backgroundColor: AppColors.white,
                     textColor: AppColors.primary,
                     onPressed: () {
-                      AppAlerts.info('Google Sign In coming soon!');
+                      authController.signInWithGoogle();
                     },
                     text: "Sign in with Google",
                     height: 55,

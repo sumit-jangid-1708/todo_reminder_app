@@ -1,8 +1,14 @@
+// lib/view_models/controller/transaction_controller.dart
+
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:todo_reminder/model/delete_party_response_model.dart';
+import 'package:todo_reminder/model/party_profile_model.dart';
 import 'package:todo_reminder/model/quick_transaction_response_model.dart';
 import 'package:todo_reminder/model/statement_model.dart';
 import 'package:todo_reminder/res/components/app_alerts.dart';
+import 'package:todo_reminder/res/routes/routes_names.dart';
 import 'package:todo_reminder/view_models/controller/base_controller.dart';
 import 'package:todo_reminder/view_models/service/transaction_service.dart';
 
@@ -13,18 +19,27 @@ class TransactionController extends GetxController with BaseController {
   final TextEditingController amountController = TextEditingController();
   final TextEditingController noteController = TextEditingController();
 
-  // Loading State
+  // Loading States
   final RxBool isLoading = false.obs;
   final RxBool isLoadingStatement = false.obs;
+  final RxBool isLoadingProfile = false.obs;
+  final RxBool isSavingProfile = false.obs;
+  final RxBool isDeletingContact = false.obs;
 
-  // Transaction Data (passed from TransactionScreen)
-  String contactName = '';
+  // ✅ contactName is RxString so Obx can observe it and update the AppBar
+  //    after a profile save. Other fields stay plain strings — they don't
+  //    need to drive reactive UI.
+  final RxString contactName = ''.obs;
   String contactPhone = '';
-  String personType = '';      // "creditor" or "debtor"
-  String transactionType = ''; // "given" or "received"
+  String personType = '';       // "creditor" | "debtor"
+  String transactionType = '';  // "given"    | "received"
 
-  // ✅ Statement Data
+  // Observable data
   final Rx<StatementModel?> statementData = Rx<StatementModel?>(null);
+  final Rx<PartyProfileModel?> profileData = Rx<PartyProfileModel?>(null);
+
+  // Newly picked avatar file (cleared after a successful save)
+  final Rx<File?> selectedAvatarFile = Rx<File?>(null);
 
   @override
   void onClose() {
@@ -33,52 +48,36 @@ class TransactionController extends GetxController with BaseController {
     super.onClose();
   }
 
-  // ==================== INITIALIZE TRANSACTION DATA ====================
+  // ==================== TRANSACTION SETUP ====================
 
-  /// Called when navigating to PaymentScreen
-  /// Sets up the transaction data based on which button was clicked
   void initializeTransaction({
     required String name,
     required String phone,
     required String personType,
     required String transactionType,
   }) {
-    contactName = name;
+    contactName.value = name; // ✅ .value
     contactPhone = phone;
     this.personType = personType;
     this.transactionType = transactionType;
-
-    print('📝 Transaction initialized:');
-    print('   Name: $name');
-    print('   Phone: $phone');
-    print('   Person Type: $personType');
-    print('   Transaction Type: $transactionType');
   }
 
-  // ==================== SET PERSON TYPE ====================
-
-  /// ✅ NEW: Set person type from transaction model
-  /// Called when TransactionScreen loads
   void setPersonType(String type) {
     personType = type;
-    print('📝 Person type set: $personType');
   }
 
-  // ==================== FETCH STATEMENT ====================
+  // ==================== STATEMENT ====================
 
-  /// ✅ Fetch transaction statement for contact
   Future<void> fetchStatement(String phone) async {
     try {
       isLoadingStatement.value = true;
 
-      final response = await _transactionService.getStatement<Map<String, dynamic>>(phone);
+      final response = await _transactionService
+          .getStatement<Map<String, dynamic>>(phone);
       final model = StatementModel.fromJson(response);
 
       if (model.success) {
         statementData.value = model;
-        print('✅ Fetched statement: ${model.data.length} date groups');
-      } else {
-        print('❌ Failed to fetch statement: ${model.message}');
       }
     } catch (e) {
       handleError(e);
@@ -87,7 +86,99 @@ class TransactionController extends GetxController with BaseController {
     }
   }
 
-  // ==================== QUICK TRANSACTION API ====================
+  // ==================== CONTACT PROFILE ====================
+
+  /// Fetch profile data and pre-populate fields
+  Future<void> fetchContactProfile(String phone) async {
+    try {
+      isLoadingProfile.value = true;
+      selectedAvatarFile.value = null;
+
+      final response = await _transactionService
+          .getContactProfile<Map<String, dynamic>>(phone);
+
+      if (response['success'] == true) {
+        profileData.value = PartyProfileModel.fromJson(
+            response['data'] as Map<String, dynamic>);
+      }
+    } catch (e) {
+      handleError(e);
+    } finally {
+      isLoadingProfile.value = false;
+    }
+  }
+
+  /// Update profile — uses multipartApi under the hood
+  Future<void> updateContactProfile({
+    required String phone,
+    required String name,
+    String? address,
+    File? avatarFile,
+  }) async {
+    if (name.trim().isEmpty) {
+      AppAlerts.error('Name cannot be empty');
+      return;
+    }
+
+    try {
+      isSavingProfile.value = true;
+
+      final response = await _transactionService
+          .updateContactProfile<Map<String, dynamic>>(
+        phone: phone,
+        name: name.trim(),
+        address: address,
+        avatarFile: avatarFile,
+      );
+
+      if (response['success'] == true) {
+        profileData.value = PartyProfileModel.fromJson(
+            response['data'] as Map<String, dynamic>);
+
+        // ✅ Update RxString → AppBar in TransactionScreen rebuilds automatically
+        contactName.value = profileData.value!.name;
+
+        selectedAvatarFile.value = null;
+
+        AppAlerts.success(
+            response['message'] ?? 'Profile updated successfully');
+
+        Get.back();
+      } else {
+        AppAlerts.error(
+            response['message'] ?? 'Failed to update profile');
+      }
+    } catch (e) {
+      handleError(e);
+    } finally {
+      isSavingProfile.value = false;
+    }
+  }
+
+  /// Delete contact + all transactions → navigate to HomeScreen
+  Future<void> deleteContact(String phone) async {
+    try {
+      isDeletingContact.value = true;
+
+      final response = await _transactionService
+          .deleteContact<Map<String, dynamic>>(phone);
+      final model = DeletePartyResponseModel.fromJson(response);
+
+      if (model.success) {
+        AppAlerts.success(model.message);
+        await Future.delayed(const Duration(milliseconds: 500));
+        Get.offAllNamed(RouteName.homeScreen);
+      } else {
+        AppAlerts.error(model.message);
+      }
+    } catch (e) {
+      handleError(e);
+    } finally {
+      isDeletingContact.value = false;
+    }
+  }
+
+  // ==================== QUICK TRANSACTION ====================
 
   Future<void> submitQuickTransaction() async {
     if (!_validateInputs()) return;
@@ -96,7 +187,7 @@ class TransactionController extends GetxController with BaseController {
       isLoading.value = true;
 
       final Map<String, dynamic> data = {
-        "name": contactName,
+        "name": contactName.value, // ✅ .value
         "phone": contactPhone,
         "person_type": personType,
         "transaction_type": transactionType,
@@ -104,22 +195,19 @@ class TransactionController extends GetxController with BaseController {
         "note": noteController.text.trim(),
       };
 
-      print('📤 Sending quick transaction: $data');
-
-      final response = await _transactionService.quickTransaction<Map<String, dynamic>>(data);
+      final response = await _transactionService
+          .quickTransaction<Map<String, dynamic>>(data);
       final model = QuickTransactionResponseModel.fromJson(response);
 
       if (model.success) {
         AppAlerts.success(model.message);
         _clearForm();
-
-        // Go back to TransactionScreen and refresh
-        await Future.delayed(const Duration(milliseconds: 500));
-        Get.back(result: true); // Pass true to indicate success
+        // await Future.delayed(const Duration(milliseconds: 500));
+        Get.back();
       } else {
-        AppAlerts.error(
-          model.message.isNotEmpty ? model.message : 'Failed to add transaction',
-        );
+        AppAlerts.error(model.message.isNotEmpty
+            ? model.message
+            : 'Failed to add transaction');
       }
     } catch (e) {
       handleError(e);
@@ -132,21 +220,18 @@ class TransactionController extends GetxController with BaseController {
 
   bool _validateInputs() {
     final amount = amountController.text.trim();
-
     if (amount.isEmpty) {
       AppAlerts.error('Please enter amount');
       return false;
     }
-
     if (_parseAmount(amount) <= 0) {
       AppAlerts.error('Amount must be greater than 0');
       return false;
     }
-
     return true;
   }
 
-  // ==================== HELPER METHODS ====================
+  // ==================== HELPERS ====================
 
   double _parseAmount(String amount) {
     final cleaned = amount.replaceAll(RegExp(r'[₹,\s]'), '');
@@ -158,49 +243,27 @@ class TransactionController extends GetxController with BaseController {
     noteController.clear();
   }
 
-  // ==================== UI HELPERS ====================
+  // ==================== UI COMPUTED PROPS ====================
 
-  String get actionLabel {
-    if (transactionType == 'given') {
-      return 'Given ↑';
-    } else {
-      return 'Received ↓';
-    }
-  }
+  String get actionLabel =>
+      transactionType == 'given' ? 'Given ↑' : 'Received ↓';
 
-  Color get actionColor {
-    if (transactionType == 'given') {
-      return Colors.red;
-    } else {
-      return Colors.green;
-    }
-  }
+  Color get actionColor =>
+      transactionType == 'given' ? Colors.red : Colors.green;
 
-  // ✅ Get balance display
   String get balanceLabel {
     if (statementData.value == null) return '₹0';
-
     final balance = statementData.value!.balanceSummary;
-    if (personType == 'creditor') {
-      return '₹${balance.youWillPay}';
-    } else {
-      return '₹${balance.youWillReceive}';
-    }
+    return personType == 'creditor'
+        ? '₹${balance.youWillPay}'
+        : '₹${balance.youWillReceive}';
   }
 
-  // ✅ FIXED: Check if personType is empty and use statement data as fallback
   String get balanceText {
-    // If personType is not set, try to get it from statement data
-    String currentPersonType = personType;
-
-    if (currentPersonType.isEmpty && statementData.value != null) {
-      currentPersonType = statementData.value!.contact.personType;
+    String current = personType;
+    if (current.isEmpty && statementData.value != null) {
+      current = statementData.value!.contact.personType;
     }
-
-    if (currentPersonType == 'creditor') {
-      return 'You Will Pay';
-    } else {
-      return 'You Will Receive';
-    }
+    return current == 'creditor' ? 'You Will Pay' : 'You Will Receive';
   }
 }

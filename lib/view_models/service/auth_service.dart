@@ -83,4 +83,15 @@ class AuthService {
       {},
     );
   }
+
+
+  /// Google Login
+  Future<T> googleLogin<T>(String idToken) async {
+    return await _apiService.postApi<T>(
+      AppUrl.googleLogin,
+      {
+        "id_token": idToken,
+      },
+    );
+  }
 }

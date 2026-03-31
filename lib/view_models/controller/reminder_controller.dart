@@ -109,7 +109,7 @@ class ReminderController extends GetxController with BaseController {
 
       if (model.success) {
         AppAlerts.success(model.message);
-        _clearForm();
+        clearForm();
 
         // Refresh reminders
         await fetchAllReminders();
@@ -171,7 +171,7 @@ class ReminderController extends GetxController with BaseController {
 
       if (model.success) {
         AppAlerts.success(model.message);
-        _clearForm();
+        clearForm();
 
         await fetchAllReminders();
 
@@ -272,7 +272,7 @@ class ReminderController extends GetxController with BaseController {
     return true;
   }
 
-  void _clearForm() {
+  void clearForm() {
     titleController.clear();
     amountController.clear();
     dateController.clear();
