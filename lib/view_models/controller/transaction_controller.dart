@@ -203,7 +203,7 @@ class TransactionController extends GetxController with BaseController {
         AppAlerts.success(model.message);
         _clearForm();
         // await Future.delayed(const Duration(milliseconds: 500));
-        Get.back();
+        Get.back(result: true);
       } else {
         AppAlerts.error(model.message.isNotEmpty
             ? model.message

@@ -33,5 +33,5 @@ class AppUrl {
   static const String payables = "$baseUrl/contacts/payables";
 
   static const String fcmToken = "$baseUrl/notifications/fcm-token";
-  static const String googleLogin = "https://ridge-online-mandate-merchant.trycloudflare.com/api/auth/google-login";
+  static const String googleLogin = "$baseUrl2/google-login";
 }

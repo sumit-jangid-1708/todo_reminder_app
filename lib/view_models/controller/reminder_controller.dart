@@ -114,7 +114,6 @@ class ReminderController extends GetxController with BaseController {
         // Refresh reminders
         await fetchAllReminders();
 
-        await Future.delayed(const Duration(seconds: 1));
         Get.back();
       } else {
         AppAlerts.error(model.message.isNotEmpty ? model.message : 'Failed to create reminder');
@@ -175,7 +174,6 @@ class ReminderController extends GetxController with BaseController {
 
         await fetchAllReminders();
 
-        await Future.delayed(const Duration(milliseconds: 500));
         Get.back();
       } else {
         AppAlerts.error(model.message.isNotEmpty ? model.message : 'Failed to update reminder');

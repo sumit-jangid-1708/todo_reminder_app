@@ -24,7 +24,10 @@ import '../../view_models/service/auth_service.dart';
 import 'base_controller.dart';
 
 class AuthController extends GetxController with BaseController {
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    serverClientId:
+    '731022300465-7fefrrme52cvrh3u6eeqoauk94slnnqv.apps.googleusercontent.com',
+  );
   final AuthService _authService = AuthService();
   final TokenStorage _tokenStorage = TokenStorage();
   final GetStorage _storage = GetStorage();
@@ -41,7 +44,8 @@ class AuthController extends GetxController with BaseController {
   // Profile Controllers
   final TextEditingController profileNameController = TextEditingController();
   final TextEditingController profileEmailController = TextEditingController();
-  final TextEditingController profilePasswordController = TextEditingController();
+  final TextEditingController profilePasswordController =
+  TextEditingController();
 
   // Reactive States
   final RxBool isLoading = false.obs;
@@ -49,10 +53,10 @@ class AuthController extends GetxController with BaseController {
   final RxBool isEmailValid = false.obs;
   final RxString passwordText = ''.obs;
   final Rx<File?> profileImage = Rx<File?>(null);
-  final RxString profileAvatarUrl = ''.obs;
+  final RxString profileAvatarUrl = ''.obs; // ✅ used in HomeHeader
 
   // OTP Timer
-  final RxInt otpTimer = 180.obs; // 3 minutes
+  final RxInt otpTimer = 180.obs;
   Timer? _timer;
 
   // Reset Token (from verify OTP)
@@ -62,12 +66,9 @@ class AuthController extends GetxController with BaseController {
   void onInit() {
     super.onInit();
     emailController.addListener(_validateEmail);
-
     passwordController.addListener(() {
       passwordText.value = passwordController.text;
     });
-
-    // Load user data for profile
     _loadUserProfile();
   }
 
@@ -85,18 +86,12 @@ class AuthController extends GetxController with BaseController {
     super.onClose();
   }
 
-  /// Load user profile data
   void _loadUserProfile() {
-    final name = _storage.read('user_name') ?? '';
-    final email = _storage.read('user_email') ?? '';
-    final avatar = _storage.read('user_avatar') ?? '';
-
-    profileNameController.text = name;
-    profileEmailController.text = email;
-    profileAvatarUrl.value = avatar;
+    profileNameController.text = _storage.read('user_name') ?? '';
+    profileEmailController.text = _storage.read('user_email') ?? '';
+    profileAvatarUrl.value = _storage.read('user_avatar') ?? '';
   }
 
-  /// Validate email in real-time
   void _validateEmail() {
     final email = emailController.text.trim();
     isEmailValid.value = Utils.isEmailValid(email) && email.isNotEmpty;
@@ -104,7 +99,6 @@ class AuthController extends GetxController with BaseController {
 
   bool get isPasswordStrong {
     final password = passwordText.value;
-
     return password.length >= 8 &&
         password.contains(RegExp(r'[A-Z]')) &&
         password.contains(RegExp(r'[0-9]'));
@@ -118,7 +112,6 @@ class AuthController extends GetxController with BaseController {
         source: ImageSource.gallery,
         imageQuality: 70,
       );
-
       if (pickedFile != null) {
         profileImage.value = File(pickedFile.path);
       }
@@ -147,17 +140,14 @@ class AuthController extends GetxController with BaseController {
       final model = ProfileUpdateResponse.fromJson(response);
 
       if (model.success) {
-        // Update local storage
         if (model.data != null) {
           await _storage.write('user_name', model.data!.user.name);
           await _storage.write('user_email', model.data!.user.email);
           await _storage.write('user_avatar', model.data!.avatarUrl);
-
           profileAvatarUrl.value = model.data!.avatarUrl;
           profilePasswordController.clear();
           profileImage.value = null;
         }
-
         AppAlerts.success(model.message);
       } else {
         AppAlerts.error(model.message);
@@ -173,26 +163,10 @@ class AuthController extends GetxController with BaseController {
     final name = profileNameController.text.trim();
     final email = profileEmailController.text.trim();
 
-    if (name.isEmpty) {
-      AppAlerts.error('Please enter your name');
-      return false;
-    }
-
-    if (name.length < 2) {
-      AppAlerts.error('Name must be at least 2 characters');
-      return false;
-    }
-
-    if (email.isEmpty) {
-      AppAlerts.error('Please enter your email');
-      return false;
-    }
-
-    if (!Utils.isEmailValid(email)) {
-      AppAlerts.error('Please enter a valid email address');
-      return false;
-    }
-
+    if (name.isEmpty) { AppAlerts.error('Please enter your name'); return false; }
+    if (name.length < 2) { AppAlerts.error('Name must be at least 2 characters'); return false; }
+    if (email.isEmpty) { AppAlerts.error('Please enter your email'); return false; }
+    if (!Utils.isEmailValid(email)) { AppAlerts.error('Please enter a valid email address'); return false; }
     return true;
   }
 
@@ -203,23 +177,15 @@ class AuthController extends GetxController with BaseController {
       AppAlerts.error('Please enter your password');
       return;
     }
-
     try {
       isLoading.value = true;
-
-      final response = await _authService.deleteAccount<Map<String, dynamic>>(
-        password,
-      );
-
+      final response =
+      await _authService.deleteAccount<Map<String, dynamic>>(password);
       final model = ProfileDeleteResponse.fromJson(response);
-
       if (model.success) {
-        // Clear all data
         await _tokenStorage.clearTokens();
         await _storage.erase();
-
         AppAlerts.success(model.message);
-
         await Future.delayed(const Duration(milliseconds: 500));
         Get.offAllNamed(RouteName.welcome);
       } else {
@@ -240,32 +206,29 @@ class AuthController extends GetxController with BaseController {
     try {
       isLoading.value = true;
 
-      final Map<String, dynamic> data = {
+      final response = await _authService.signUp<Map<String, dynamic>>({
         "name": nameController.text.trim(),
         "email": emailController.text.trim(),
         "password": passwordController.text.trim(),
-      };
-
-      final response = await _authService.signUp<Map<String, dynamic>>(data);
+      });
       final model = RegisterResponseModel.fromJson(response);
 
       if (model.success) {
         if (model.data?.token != null) {
           await _tokenStorage.saveToken(model.data!.token);
         }
-
         if (model.data?.user != null) {
           await _saveUserData(model.data!.user);
         }
-
-        // ✅ Send FCM token after successful signup
-        await NotificationService.sendFcmTokenToServer(forceUpdate: true);
 
         AppAlerts.success(model.message);
         _clearForm();
 
         await Future.delayed(const Duration(seconds: 1));
         Get.offAllNamed(RouteName.homeScreen);
+
+        // ✅ FCM after navigation — non-blocking, token is saved by now
+        _sendFcmSafely();
       } else {
         _handleValidationErrors(model.errors, model.message);
       }
@@ -281,41 +244,13 @@ class AuthController extends GetxController with BaseController {
     final email = emailController.text.trim();
     final password = passwordController.text;
 
-    if (name.isEmpty) {
-      AppAlerts.error('Please enter your name');
-      return false;
-    }
-
-    if (name.length < 2) {
-      AppAlerts.error('Name must be at least 2 characters');
-      return false;
-    }
-
-    if (email.isEmpty) {
-      AppAlerts.error('Please enter your email');
-      return false;
-    }
-
-    if (!Utils.isEmailValid(email)) {
-      AppAlerts.error('Please enter a valid email address');
-      return false;
-    }
-
-    if (password.isEmpty) {
-      AppAlerts.error('Please enter a password');
-      return false;
-    }
-
-    if (password.length < 6) {
-      AppAlerts.error('Password must be at least 6 characters');
-      return false;
-    }
-
-    if (!agreeToTerms.value) {
-      AppAlerts.error('Please agree to terms and privacy policy');
-      return false;
-    }
-
+    if (name.isEmpty) { AppAlerts.error('Please enter your name'); return false; }
+    if (name.length < 2) { AppAlerts.error('Name must be at least 2 characters'); return false; }
+    if (email.isEmpty) { AppAlerts.error('Please enter your email'); return false; }
+    if (!Utils.isEmailValid(email)) { AppAlerts.error('Please enter a valid email address'); return false; }
+    if (password.isEmpty) { AppAlerts.error('Please enter a password'); return false; }
+    if (password.length < 6) { AppAlerts.error('Password must be at least 6 characters'); return false; }
+    if (!agreeToTerms.value) { AppAlerts.error('Please agree to terms and privacy policy'); return false; }
     return true;
   }
 
@@ -327,35 +262,31 @@ class AuthController extends GetxController with BaseController {
     try {
       isLoading.value = true;
 
-      final Map<String, dynamic> data = {
+      final response = await _authService.signIn<Map<String, dynamic>>({
         "email": emailController.text.trim(),
         "password": passwordController.text.trim(),
-      };
-
-      final response = await _authService.signIn<Map<String, dynamic>>(data);
+      });
       final model = LoginResponseModel.fromJson(response);
 
       if (model.success) {
         if (model.data?.token != null) {
           await _tokenStorage.saveToken(model.data!.token);
         }
-
         if (model.data?.user != null) {
           await _saveUserData(model.data!.user);
         }
-
-        // ✅ Send FCM token after successful login
-        await NotificationService.sendFcmTokenToServer(forceUpdate: true);
 
         AppAlerts.success(model.message);
         _clearForm();
 
         await Future.delayed(const Duration(seconds: 1));
         Get.offAllNamed(RouteName.homeScreen);
+
+        // ✅ FCM after navigation — non-blocking
+        _sendFcmSafely();
       } else {
         AppAlerts.error(
-          model.message.isNotEmpty ? model.message : 'Login failed',
-        );
+            model.message.isNotEmpty ? model.message : 'Login failed');
       }
     } catch (e) {
       handleError(e);
@@ -367,25 +298,11 @@ class AuthController extends GetxController with BaseController {
   bool _validateSignInInputs() {
     final email = emailController.text.trim();
     final password = passwordController.text;
-
-    if (email.isEmpty) {
-      AppAlerts.error('Please enter your email');
-      return false;
-    }
-
-    if (!Utils.isEmailValid(email)) {
-      AppAlerts.error('Please enter a valid email address');
-      return false;
-    }
-
-    if (password.isEmpty) {
-      AppAlerts.error('Please enter a password');
-      return false;
-    }
-
+    if (email.isEmpty) { AppAlerts.error('Please enter your email'); return false; }
+    if (!Utils.isEmailValid(email)) { AppAlerts.error('Please enter a valid email address'); return false; }
+    if (password.isEmpty) { AppAlerts.error('Please enter a password'); return false; }
     return true;
   }
-
 
   // ==================== GOOGLE SIGN IN ====================
 
@@ -393,45 +310,39 @@ class AuthController extends GetxController with BaseController {
     try {
       isLoading.value = true;
 
-      final GoogleSignInAccount? account =
-      await _googleSignIn.signIn();
-
+      final GoogleSignInAccount? account = await _googleSignIn.signIn();
       if (account == null) {
         isLoading.value = false;
-        return; // user cancelled
-      }
-
-      final GoogleSignInAuthentication auth =
-      await account.authentication;
-
-      final String? idToken = auth.idToken;
-
-      if (idToken == null) {
-        AppAlerts.error("Google token not found");
         return;
       }
 
-      // 🔥 Call backend
+      final GoogleSignInAuthentication auth = await account.authentication;
+      final String? idToken = auth.idToken;
+
+      if (idToken == null) {
+        AppAlerts.error("Google sign-in failed. Please try again.");
+        return;
+      }
+
       final response =
       await _authService.googleLogin<Map<String, dynamic>>(idToken);
-
       final model = LoginResponseModel.fromJson(response);
 
       if (model.success) {
         if (model.data?.token != null) {
           await _tokenStorage.saveToken(model.data!.token);
         }
-
         if (model.data?.user != null) {
           await _saveUserData(model.data!.user);
         }
-
-        await NotificationService.sendFcmTokenToServer(forceUpdate: true);
 
         AppAlerts.success(model.message);
 
         await Future.delayed(const Duration(seconds: 1));
         Get.offAllNamed(RouteName.homeScreen);
+
+        // ✅ FCM after navigation — non-blocking
+        _sendFcmSafely();
       } else {
         AppAlerts.error(model.message);
       }
@@ -442,44 +353,27 @@ class AuthController extends GetxController with BaseController {
     }
   }
 
-
   // ==================== FORGOT PASSWORD ====================
 
   Future<void> forgotPassword() async {
     final email = emailController.text.trim();
-
-    if (email.isEmpty) {
-      AppAlerts.error('Please enter your email');
-      return;
-    }
-
-    if (!Utils.isEmailValid(email)) {
-      AppAlerts.error('Please enter a valid email address');
-      return;
-    }
+    if (email.isEmpty) { AppAlerts.error('Please enter your email'); return; }
+    if (!Utils.isEmailValid(email)) { AppAlerts.error('Please enter a valid email address'); return; }
 
     try {
       isLoading.value = true;
-
-      final Map<String, dynamic> data = {"email": email};
-
-      final response = await _authService.forgotPassword<Map<String, dynamic>>(
-        data,
-      );
+      final response = await _authService
+          .forgotPassword<Map<String, dynamic>>({"email": email});
       final model = ForgotPassResponseModel.fromJson(response);
 
       if (model.success) {
         AppAlerts.success(model.message);
-
-        // Start OTP timer
         _startOtpTimer();
-
         await Future.delayed(const Duration(seconds: 1));
         Get.toNamed(RouteName.otp);
       } else {
         AppAlerts.error(
-          model.message.isNotEmpty ? model.message : 'Failed to send OTP',
-        );
+            model.message.isNotEmpty ? model.message : 'Failed to send OTP');
       }
     } catch (e) {
       handleError(e);
@@ -491,42 +385,25 @@ class AuthController extends GetxController with BaseController {
   // ==================== VERIFY OTP ====================
 
   Future<void> verifyOtp() async {
-    final email = emailController.text.trim();
     final otp = otpController.text.trim();
-
-    if (otp.isEmpty) {
-      AppAlerts.error('Please enter OTP');
-      return;
-    }
-
-    if (otp.length != 6) {
-      AppAlerts.error('OTP must be 6 digits');
-      return;
-    }
+    if (otp.isEmpty) { AppAlerts.error('Please enter OTP'); return; }
+    if (otp.length != 6) { AppAlerts.error('OTP must be 6 digits'); return; }
 
     try {
       isLoading.value = true;
-
-      final Map<String, dynamic> data = {"email": email, "otp": otp};
-
-      final response = await _authService.verifyOtp<Map<String, dynamic>>(data);
+      final response = await _authService.verifyOtp<Map<String, dynamic>>(
+          {"email": emailController.text.trim(), "otp": otp});
       final model = VerifyOtpResponseModel.fromJson(response);
 
       if (model.success) {
-        // Save reset token
         resetToken = model.resetToken;
-
         AppAlerts.success(model.message);
-
-        // Stop timer
         _stopOtpTimer();
-
         await Future.delayed(const Duration(seconds: 1));
         Get.toNamed(RouteName.createNewPass);
       } else {
         AppAlerts.error(
-          model.message.isNotEmpty ? model.message : 'Invalid OTP',
-        );
+            model.message.isNotEmpty ? model.message : 'Invalid OTP');
       }
     } catch (e) {
       handleError(e);
@@ -542,32 +419,25 @@ class AuthController extends GetxController with BaseController {
 
     try {
       isLoading.value = true;
-
-      final Map<String, dynamic> data = {
+      final response =
+      await _authService.resetPassword<Map<String, dynamic>>({
         "email": emailController.text.trim(),
         "reset_token": resetToken,
         "password": passwordController.text.trim(),
         "confirm_password": confirmPasswordController.text.trim(),
-      };
-
-      final response = await _authService.resetPassword<Map<String, dynamic>>(
-        data,
-      );
+      });
       final model = ResetPasswordResponseModel.fromJson(response);
 
       if (model.success) {
         AppAlerts.success(model.message);
         _clearForm();
-
-        // Clear reset token
         resetToken = null;
-
         await Future.delayed(const Duration(seconds: 1));
         Get.offAllNamed(RouteName.signIn);
       } else {
-        AppAlerts.error(
-          model.message.isNotEmpty ? model.message : 'Failed to reset password',
-        );
+        AppAlerts.error(model.message.isNotEmpty
+            ? model.message
+            : 'Failed to reset password');
       }
     } catch (e) {
       handleError(e);
@@ -579,54 +449,29 @@ class AuthController extends GetxController with BaseController {
   bool _validateResetPasswordInputs() {
     final password = passwordController.text.trim();
     final confirmPassword = confirmPasswordController.text.trim();
-
-    if (password.isEmpty) {
-      AppAlerts.error('Please enter new password');
-      return false;
-    }
-
-    if (password.length < 6) {
-      AppAlerts.error('Password must be at least 6 characters');
-      return false;
-    }
-
-    if (confirmPassword.isEmpty) {
-      AppAlerts.error('Please confirm your password');
-      return false;
-    }
-
-    if (password != confirmPassword) {
-      AppAlerts.error('Passwords do not match');
-      return false;
-    }
-
+    if (password.isEmpty) { AppAlerts.error('Please enter new password'); return false; }
+    if (password.length < 6) { AppAlerts.error('Password must be at least 6 characters'); return false; }
+    if (confirmPassword.isEmpty) { AppAlerts.error('Please confirm your password'); return false; }
+    if (password != confirmPassword) { AppAlerts.error('Passwords do not match'); return false; }
     if (resetToken == null || resetToken!.isEmpty) {
       AppAlerts.error('Invalid reset token. Please try again');
       Get.offAllNamed(RouteName.forgetPassword);
       return false;
     }
-
     return true;
   }
 
   // ==================== RESEND OTP ====================
 
-  Future<void> resendOtp() async {
-    await forgotPassword();
-  }
+  Future<void> resendOtp() async => forgotPassword();
 
   // ==================== OTP TIMER ====================
 
   void _startOtpTimer() {
-    otpTimer.value = 180; // 3 minutes
+    otpTimer.value = 180;
     _timer?.cancel();
-
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (otpTimer.value > 0) {
-        otpTimer.value--;
-      } else {
-        timer.cancel();
-      }
+      if (otpTimer.value > 0) { otpTimer.value--; } else { timer.cancel(); }
     });
   }
 
@@ -643,10 +488,24 @@ class AuthController extends GetxController with BaseController {
 
   // ==================== HELPER METHODS ====================
 
+  /// ✅ Save user data including avatar
   Future<void> _saveUserData(AuthUser user) async {
     await _storage.write('user_id', user.id);
     await _storage.write('user_name', user.name);
     await _storage.write('user_email', user.email);
+    // ✅ Save avatar URL (null-safe)
+    await _storage.write('user_avatar', user.avatarUrl ?? '');
+    // ✅ Update reactive variable immediately
+    profileAvatarUrl.value = user.avatarUrl ?? '';
+  }
+
+  /// ✅ FCM — called after navigation, non-blocking, errors silently ignored
+  void _sendFcmSafely() {
+    Future.delayed(const Duration(milliseconds: 500), () {
+      NotificationService.sendFcmTokenToServer(forceUpdate: true).catchError(
+            (e) => debugPrint("FCM send failed (non-critical): $e"),
+      );
+    });
   }
 
   void _handleValidationErrors(
@@ -654,18 +513,11 @@ class AuthController extends GetxController with BaseController {
       String fallbackMessage,
       ) {
     if (errors != null && errors.isNotEmpty) {
-      final firstErrorKey = errors.keys.first;
-      final firstErrorMessages = errors[firstErrorKey];
-
-      if (firstErrorMessages != null && firstErrorMessages.isNotEmpty) {
-        AppAlerts.error(firstErrorMessages.first);
-        return;
-      }
+      final first = errors.values.first;
+      if (first.isNotEmpty) { AppAlerts.error(first.first); return; }
     }
-
     AppAlerts.error(
-      fallbackMessage.isNotEmpty ? fallbackMessage : 'Operation failed',
-    );
+        fallbackMessage.isNotEmpty ? fallbackMessage : 'Operation failed');
   }
 
   void _clearForm() {
@@ -683,14 +535,11 @@ class AuthController extends GetxController with BaseController {
   Future<void> logout() async {
     try {
       isLoading.value = true;
-
-      // await _authService.logout<Map<String, dynamic>>();
       await _googleSignIn.signOut();
       await _tokenStorage.clearTokens();
       await _storage.erase();
-
+      profileAvatarUrl.value = '';
       AppAlerts.success('Logged out successfully');
-
       await Future.delayed(const Duration(milliseconds: 500));
       Get.offAllNamed(RouteName.welcome);
     } catch (e) {
@@ -699,7 +548,4 @@ class AuthController extends GetxController with BaseController {
       isLoading.value = false;
     }
   }
-
-
-
 }

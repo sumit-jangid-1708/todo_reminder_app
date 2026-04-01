@@ -72,13 +72,13 @@ class AddPersonForm extends StatelessWidget {
                 alignment: Alignment.centerRight,
                 child: InkWell(
                   onTap: () async {
-                    // final contactData = await homeController.pickContact();
-                    // if (contactData != null) {
-                    //   homeController.fullNameController.text =
-                    //       contactData["name"] ?? "";
-                    //   homeController.mobileNumberController.text =
-                    //       contactData["number"] ?? "";
-                    // }
+                    final contactData = await homeController.pickContact();
+                    if (contactData != null) {
+                      homeController.fullNameController.text =
+                          contactData["name"] ?? "";
+                      homeController.mobileNumberController.text =
+                          contactData["number"] ?? "";
+                    }
                   },
                   child: const Text(
                     "Add from contacts",

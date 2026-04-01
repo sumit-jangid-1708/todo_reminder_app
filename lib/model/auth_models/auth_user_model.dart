@@ -1,35 +1,41 @@
+// lib/model/auth_models/auth_user_model.dart
+
 class AuthUser {
   final int id;
   final String name;
   final String email;
-  final String createdAt;
-  final String updatedAt;
+  final String? avatarUrl; // ✅ handles both "avatar" and "avatar_url" from API
 
-  AuthUser({
+  const AuthUser({
     required this.id,
     required this.name,
     required this.email,
-    required this.createdAt,
-    required this.updatedAt,
+    this.avatarUrl,
   });
 
   factory AuthUser.fromJson(Map<String, dynamic> json) {
-    return AuthUser(
-      id: json['id'] ?? 0,
-      name: json['name'] ?? '',
-      email: json['email'] ?? '',
-      createdAt: json['created_at'] ?? '',
-      updatedAt: json['updated_at'] ?? '',
-    );
-  }
+    // ✅ Regular login → "avatar" (relative path e.g. "avatars/xxx.jpg")
+    // ✅ Google login  → "avatar_url" (full URL)
+    // ✅ Register      → no avatar field
+    final raw = json['avatar_url'] ?? json['avatar'];
 
-  Map<String, dynamic> toJson() {
-    return {
-      "id": id,
-      "name": name,
-      "email": email,
-      "created_at": createdAt,
-      "updated_at": updatedAt,
-    };
+    String? avatarUrl;
+    if (raw != null && raw.toString().isNotEmpty) {
+      final str = raw.toString();
+      if (str.startsWith('http')) {
+        avatarUrl = str; // already full URL (Google login)
+      } else {
+        avatarUrl = 'https://todotransaction.testwebs.in/storage/$str'; // relative path
+      }
+    }
+
+    return AuthUser(
+      id: json['id'] is int
+          ? json['id']
+          : int.tryParse(json['id']?.toString() ?? '0') ?? 0,
+      name: json['name']?.toString() ?? '',
+      email: json['email']?.toString() ?? '',
+      avatarUrl: avatarUrl,
+    );
   }
 }

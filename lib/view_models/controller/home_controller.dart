@@ -5,7 +5,6 @@ import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:flutter_contacts/models/permissions/permission_type.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
-import 'package:http/http.dart' as PermissionType;
 import 'package:intl/intl.dart';
 import 'package:todo_reminder/res/routes/routes_names.dart';
 import 'package:todo_reminder/view_models/controller/reminder_controller.dart';
@@ -369,48 +368,48 @@ class HomeController extends GetxController with BaseController {
 
   // ==================== CONTACT PICKER ====================
 
-  // Future<Map<String, String>?> pickContact() async {
-  //   final status = await FlutterContacts.permissions.request(PermissionType.read);
+  Future<Map<String, String>?> pickContact() async {
+    final status = await FlutterContacts.permissions.request(PermissionType.read);
 
-  //   if (status != PermissionStatus.granted) {
-  //     return null;
-  //   }
+    if (status != PermissionStatus.granted) {
+      return null;
+    }
 
-  //   final String? contactId = await FlutterContacts.native.showPicker();
+    final String? contactId = await FlutterContacts.native.showPicker();
 
-  //   if (contactId == null) return null;
+    if (contactId == null) return null;
 
-  //   final Contact? contact = await FlutterContacts.get(
-  //     contactId,
-  //     properties: {
-  //       ContactProperty.name,
-  //       ContactProperty.phone,
-  //     },
-  //   );
+    final Contact? contact = await FlutterContacts.get(
+      contactId,
+      properties: {
+        ContactProperty.name,
+        ContactProperty.phone,
+      },
+    );
 
-  //   if (contact == null) return null;
+    if (contact == null) return null;
 
-  //   String? name = contact.displayName;
+    String? name = contact.displayName;
 
-  //   String number = "";
-  //   if (contact.phones.isNotEmpty) {
-  //     number = contact.phones.first.number;
-  //     number = number.replaceAll(RegExp(r'[^0-9]'), '');
+    String number = "";
+    if (contact.phones.isNotEmpty) {
+      number = contact.phones.first.number;
+      number = number.replaceAll(RegExp(r'[^0-9]'), '');
 
-  //     if (number.startsWith("91") && number.length > 10) {
-  //       number = number.substring(number.length - 10);
-  //     }
+      if (number.startsWith("91") && number.length > 10) {
+        number = number.substring(number.length - 10);
+      }
 
-  //     if (number.length > 10) {
-  //       number = number.substring(number.length - 10);
-  //     }
-  //   }
+      if (number.length > 10) {
+        number = number.substring(number.length - 10);
+      }
+    }
 
-  //   return {
-  //     "name": name ?? "",
-  //     "number": number,
-  //   };
-  // }
+    return {
+      "name": name ?? "",
+      "number": number,
+    };
+  }
 
   void _setCurrentDate() {
     final now = DateTime.now();

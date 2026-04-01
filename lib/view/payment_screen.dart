@@ -44,14 +44,26 @@ class PaymentScreen extends StatelessWidget {
               child: Icon(Icons.person, size: 45, color: AppColors.white),
             ),
             const SizedBox(height: 12),
-            Text(
-              controller.contactName.value ,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            Text(
-              controller.personType == 'creditor' ? 'Creditor' : 'Debtor',
-              style: const TextStyle(fontSize: 14, color: AppColors.text1),
-            ),
+            Obx(() => Column(
+              children: [
+                Text(
+                  controller.contactName.value,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  controller.personType == 'creditor'
+                      ? 'Creditor'
+                      : 'Debtor',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppColors.text1,
+                  ),
+                ),
+              ],
+            )),
 
             const Spacer(flex: 2),
 
